@@ -6,11 +6,11 @@ execute:
   echo: true
 
 book:
-  title: "YOUR PROJECT TITLE"
+  title: "Exploratory Analysis of U.S. Campaign Finance Data"
   author:
-    - AUTHOR1 (UNI1)
-    - AUTHOR2 (UNI2)
-  repo-url: https://github.com/YOUR_GITHUB_ACCOUNT/REPO_NAME
+    - Ayush Kumar (ak5486)
+    - Aditi Mittal (am6845)
+  repo-url: https://github.com/vitarka101/FEC-US-Campaign-Finance-Analysis
   date: today
   page-footer:
     right: |
