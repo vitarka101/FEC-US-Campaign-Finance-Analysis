@@ -6,11 +6,8 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
-<meta name="author" content="Ayush Kumar (ak5486)">
-<meta name="author" content="Aditi Mittal (am6845)">
-<meta name="dcterms.date" content="2025-12-11">
 
-<title>Exploratory Analysis of U.S. Campaign Finance Data</title>
+<title>4&nbsp; Interactive Graph – Exploratory Analysis of U.S. Campaign Finance Data</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -33,7 +30,8 @@ ul.task-list li input[type="checkbox"] {
 <script src="site_libs/quarto-search/fuse.min.js"></script>
 <script src="site_libs/quarto-search/quarto-search.js"></script>
 <meta name="quarto:offset" content="./">
-<link href="./data.html" rel="next">
+<link href="./conclusion.html" rel="next">
+<link href="./analysis.html" rel="prev">
 <script src="site_libs/quarto-html/quarto.js" type="module"></script>
 <script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
 <script src="site_libs/quarto-html/axe/axe-check.js" type="module"></script>
@@ -85,7 +83,7 @@ ul.task-list li input[type="checkbox"] {
       <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
         <i class="bi bi-layout-text-sidebar-reverse"></i>
       </button>
-        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./index.html"><span class="chapter-number">1</span>&nbsp; <span class="chapter-title">Introduction</span></a></li></ol></nav>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./interactive.html"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">Interactive Graph</span></a></li></ol></nav>
         <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
         </a>
       <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
@@ -115,7 +113,7 @@ ul.task-list li input[type="checkbox"] {
     <ul class="list-unstyled mt-1">
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./index.html" class="sidebar-item-text sidebar-link active">
+  <a href="./index.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text"><span class="chapter-number">1</span>&nbsp; <span class="chapter-title">Introduction</span></span></a>
   </div>
 </li>
@@ -133,7 +131,7 @@ ul.task-list li input[type="checkbox"] {
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./interactive.html" class="sidebar-item-text sidebar-link">
+  <a href="./interactive.html" class="sidebar-item-text sidebar-link active">
  <span class="menu-text"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">Interactive Graph</span></span></a>
   </div>
 </li>
@@ -154,27 +152,14 @@ ul.task-list li input[type="checkbox"] {
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title">Exploratory Analysis of U.S. Campaign Finance Data</h1>
+<h1 class="title"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">Interactive Graph</span></h1>
 </div>
 
 
 
 <div class="quarto-title-meta column-page-right">
 
-    <div>
-    <div class="quarto-title-meta-heading">Authors</div>
-    <div class="quarto-title-meta-contents">
-             <p>Ayush Kumar (ak5486) </p>
-             <p>Aditi Mittal (am6845) </p>
-          </div>
-  </div>
     
-    <div>
-    <div class="quarto-title-meta-heading">Published</div>
-    <div class="quarto-title-meta-contents">
-      <p class="date">December 11, 2025</p>
-    </div>
-  </div>
   
     
   </div>
@@ -184,30 +169,13 @@ ul.task-list li input[type="checkbox"] {
 </header>
 
 
-<p>Money has a big impact on American elections. It affects which candidates get attention, how they share their message, and which voices are heard by voters. But for most people, it is hard to see where all that money comes from and how it is used. We chose this topic because we want to understand how campaign money moves during presidential elections. We are interested in finding out who raises the most money, how campaigns spend it, and how this has changed over the years. Some questions we want to look at are:</p>
-<ol type="1">
-<li>Which candidates and parties raise the most money, and from what sources?</li>
-<li>How do different campaigns spend their funds?</li>
-<li>Has independent spending grown in influence?</li>
-<li>What kinds of committees and donors contribute the most?</li>
-<li>Are there any clear financial patterns that seem to separate winning campaigns from others?</li>
-</ol>
-<p>By using and visualizing data from the Federal Election Commission (FEC), we hope to find clear trends that show how money shapes elections in the United States today.</p>
-<p>Federal campaign finance data is vast, detailed, and often overwhelming, but it offers one of the clearest windows into how political power is built in the United States. Every federal candidate and political committee is legally required to disclose where their money comes from and how it is spent, and the Federal Election Commission (FEC) compiles these reports into a public database that spans decades of elections. This dataset includes information on presidential, Senate, and House campaigns, independent expenditure groups, political action committees (PACs), party committees, and more.</p>
-<p>Although the FEC provides millions of records, our project focuses exclusively on the presidential election cycle, where financial activity is typically the largest and most influential. Presidential campaigns raise far more money than congressional campaigns, attract more independent spending, and involve extensive networks of committees, donors, and outside groups. This makes the dataset ideal for exploring patterns in political fundraising at a national scale.</p>
-<p>To build our analysis, we rely on official, publicly accessible FEC data obtained through the FEC Open Data API. This API provides structured access to many components of the campaign finance system, such as:</p>
-<ul>
-<li><p>Candidate-level summaries, including total receipts, disbursements, cash on hand, loans, and debts</p></li>
-<li><p>Committee-level activity, showing how affiliated committees raise and spend money</p></li>
-<li><p>Itemized contributions, detailing individual donors, PAC contributions, and transfers</p></li>
-<li><p>Independent expenditures, which capture spending by outside groups attempting to influence an election</p></li>
-</ul>
-<p>These sources allow us to reconstruct a full financial picture of each presidential campaign, tracking how money enters, circulates, and is deployed throughout an election cycle.</p>
-<p>A central part of our project is a comparative analysis of two recent presidential elections: 2020 and 2024. These two cycles offer a natural contrast—not only in political outcome, but also in financial structure. Democrats won the presidency in 2020, while Republicans prevailed in 2024. By comparing how much money each side raised, how they spent it, and how independent groups participated, we can evaluate whether financial patterns shifted alongside electoral results.</p>
-<p>For instance, one might ask whether the winning party in each cycle benefited from stronger grassroots fundraising, larger PAC contributions, more aggressive spending, or greater support from outside groups. Alternatively, the strength of independent expenditures may reveal how much influence super PACs and other organizations exerted relative to the campaigns themselves.</p>
-<p>By narrowing our scope to these two election years and applying exploratory data analysis techniques, we aim to uncover meaningful trends in how campaign financing evolves—and how those changes may relate to shifts in political power. Ultimately, this project uses data from the FEC not only to visualize financial flows, but also to better understand how money functions as a strategic resource in modern presidential elections.</p>
+<section id="us-presidential-donations-map-2020-vs-2024" class="level2" data-number="4.1">
+<h2 data-number="4.1" class="anchored" data-anchor-id="us-presidential-donations-map-2020-vs-2024"><span class="header-section-number">4.1</span> US Presidential Donations Map – 2020 vs 2024</h2>
+<iframe src="quarto_safe_map/map.html" width="100%" height="800px" style="border: none;">
+</iframe>
 
 
+</section>
 
 </main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
@@ -612,10 +580,13 @@ ul.task-list li input[type="checkbox"] {
   </script>
 <nav class="page-navigation column-page-right">
   <div class="nav-page nav-page-previous">
+      <a href="./analysis.html" class="pagination-link" aria-label="Analysis">
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">Analysis</span></span>
+      </a>          
   </div>
   <div class="nav-page nav-page-next">
-      <a href="./data.html" class="pagination-link" aria-label="Data">
-        <span class="nav-page-text"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">Data</span></span> <i class="bi bi-arrow-right-short"></i>
+      <a href="./conclusion.html" class="pagination-link" aria-label="Conclusion">
+        <span class="nav-page-text"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Conclusion</span></span> <i class="bi bi-arrow-right-short"></i>
       </a>
   </div>
 </nav>
@@ -627,7 +598,7 @@ ul.task-list li input[type="checkbox"] {
     </div>   
     <div class="nav-footer-center">
       &nbsp;
-    <div class="toc-actions"><ul><li><a href="https://github.com/vitarka101/FEC-US-Campaign-Finance-Analysis/edit/main/index.qmd" class="toc-action"><i class="bi bi-github"></i>Edit this page</a></li><li><a href="https://github.com/vitarka101/FEC-US-Campaign-Finance-Analysis/issues/new" class="toc-action"><i class="bi empty"></i>Report an issue</a></li></ul></div></div>
+    <div class="toc-actions"><ul><li><a href="https://github.com/vitarka101/FEC-US-Campaign-Finance-Analysis/edit/main/interactive.qmd" class="toc-action"><i class="bi bi-github"></i>Edit this page</a></li><li><a href="https://github.com/vitarka101/FEC-US-Campaign-Finance-Analysis/issues/new" class="toc-action"><i class="bi empty"></i>Report an issue</a></li></ul></div></div>
     <div class="nav-footer-right">
 <p>This book was built with <a href="https://quarto.org/">Quarto</a>.</p>
 </div>
