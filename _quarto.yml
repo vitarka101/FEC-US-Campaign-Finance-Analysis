@@ -1,9 +1,12 @@
 project:
   type: book
   output-dir: docs
+  resources:
+    - quarto_safe_map/**
 
 execute:
   echo: true
+  warning: false
 
 book:
   title: "Exploratory Analysis of U.S. Campaign Finance Data"
@@ -19,12 +22,12 @@ book:
   chapters:
     - index.qmd
     - data.qmd
-    - results.qmd
+    - analysis.qmd
+    - interactive.qmd
     - conclusion.qmd
 
 format:
   html:
-    theme: cosmo
+    theme: Superhero
     code-fold: true
-
-
+    allow-html: true

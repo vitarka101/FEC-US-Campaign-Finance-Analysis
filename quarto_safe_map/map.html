@@ -1,0 +1,520 @@
+
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>US Presidential Donations Map – Modal Version</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 1.5rem;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: #f5f5f7;
+        color: #111827;
+      }
+      #usmap-container {
+        max-width: 1100px;
+        margin: 0 auto;
+      }
+      #usmap-title {
+        font-size: 2rem;
+        margin: 0 0 0.25rem 0;
+      }
+      #usmap-subtitle {
+        margin: 0 0 1.25rem 0;
+        color: #4b5563;
+        font-size: 0.95rem;
+      }
+      #map-panel {
+        background: #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 10px 25px rgba(15, 23, 42, 0.06);
+        padding: 1.25rem 1.25rem 1.5rem;
+      }
+      #map {
+        width: 100%;
+        min-height: 520px;
+      }
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        align-items: center;
+        margin-bottom: 0.75rem;
+      }
+      .controls-group {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+      }
+      label {
+        font-size: 0.85rem;
+        color: #4b5563;
+      }
+      select {
+        font-size: 0.85rem;
+        padding: 0.25rem 0.55rem;
+        border-radius: 6px;
+        border: 1px solid #d1d5db;
+        background: #ffffff;
+      }
+      select:focus {
+        outline: none;
+        border-color: #2563eb;
+        box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.15);
+      }
+      #legend {
+        margin-top: 0.5rem;
+        font-size: 0.8rem;
+        color: #4b5563;
+      }
+      #legend .swatch {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border-radius: 3px;
+        margin-right: 4px;
+        vertical-align: middle;
+      }
+      #legend .scale {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+      }
+      #legend .scale-box {
+        width: 18px;
+        height: 12px;
+        border-radius: 2px;
+      }
+      /* Modal overlay */
+      #usmap-modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.45);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+      }
+      #usmap-modal {
+        background: #ffffff;
+        border-radius: 14px;
+        max-width: 420px;
+        width: 100%;
+        padding: 1.1rem 1.3rem 1.2rem;
+        box-shadow: 0 18px 45px rgba(15, 23, 42, 0.25);
+        animation: usmap-modal-in 0.22s ease-out;
+      }
+      @keyframes usmap-modal-in {
+        from {
+          opacity: 0;
+          transform: translateY(10px) scale(0.98);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+      #usmap-modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.4rem;
+      }
+      #usmap-modal-title {
+        font-size: 1.15rem;
+        margin: 0;
+      }
+      #usmap-modal-close {
+        border: none;
+        background: transparent;
+        font-size: 1.1rem;
+        cursor: pointer;
+        color: #6b7280;
+      }
+      #usmap-modal-close:hover {
+        color: #111827;
+      }
+      .usmap-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        border-radius: 999px;
+        padding: 0.1rem 0.55rem;
+        font-size: 0.7rem;
+        color: #ffffff;
+        margin-left: 0.35rem;
+      }
+      .usmap-pill.dem {
+        background: #1d4ed8;
+      }
+      .usmap-pill.gop {
+        background: #b91c1c;
+      }
+      .usmap-muted {
+        color: #6b7280;
+        font-size: 0.85rem;
+      }
+      .usmap-section-title {
+        margin: 0.7rem 0 0.25rem 0;
+        font-size: 0.9rem;
+      }
+      .usmap-bar-row {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        margin: 0.2rem 0;
+      }
+      .usmap-bar-label {
+        font-size: 0.78rem;
+        width: 2.7rem;
+        color: #4b5563;
+      }
+      .usmap-bar-track {
+        flex: 1;
+        height: 14px;
+        border-radius: 999px;
+        background: #e5e7eb;
+        overflow: hidden;
+      }
+      .usmap-bar-fill {
+        height: 100%;
+        border-radius: 999px;
+        transition: width 0.35s ease-out;
+      }
+      .usmap-bar-fill.y2020 {
+        background: linear-gradient(90deg, #bfdbfe, #2563eb);
+      }
+      .usmap-bar-fill.y2024 {
+        background: linear-gradient(90deg, #fecaca, #b91c1c);
+      }
+      .usmap-bar-value {
+        font-size: 0.78rem;
+        min-width: 3.1rem;
+        text-align: right;
+        color: #374151;
+      }
+      .usmap-note {
+        margin-top: 0.85rem;
+        font-size: 0.78rem;
+        color: #6b7280;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="usmap-container">
+      <h1 id="usmap-title">US Presidential Donations Map – 2020 vs 2024</h1>
+      <p id="usmap-subtitle">
+        Hover over states for a quick summary, then click to open a detailed popup
+        comparing winners and fundraising in the 2020 and 2024 presidential cycles.
+      </p>
+
+      <section id="map-panel">
+        <div class="controls">
+          <div class="controls-group">
+            <label for="year-select">Year:</label>
+            <select id="year-select">
+              <option value="2020" selected>2020 cycle</option>
+              <option value="2024">2024 cycle</option>
+            </select>
+          </div>
+          <div class="controls-group">
+            <label for="mode-select">Color map by:</label>
+            <select id="mode-select">
+              <option value="winner" selected>Winner (party)</option>
+              <option value="donations">Donation intensity</option>
+            </select>
+          </div>
+        </div>
+        <div id="map"></div>
+        <div id="legend"></div>
+      </section>
+    </div>
+
+    <!-- Center modal for state details -->
+    <div id="usmap-modal-overlay">
+      <div id="usmap-modal">
+        <div id="usmap-modal-header">
+          <h2 id="usmap-modal-title">State</h2>
+          <button id="usmap-modal-close" aria-label="Close">&times;</button>
+        </div>
+        <div id="usmap-modal-body"></div>
+      </div>
+    </div>
+
+    <!-- SimpleMaps engine + data (from assets) -->
+    <script src="assets/mapdata.js"></script>
+    <script src="assets/usmap.js"></script>
+    <script src="assets/donations.js"></script>
+
+    <script>
+      // Winners by state
+      const WINNERS_2020 = {
+        AL:"Trump",AK:"Trump",AZ:"Biden",AR:"Trump",CA:"Biden",CO:"Biden",CT:"Biden",
+        DE:"Biden",FL:"Trump",GA:"Biden",HI:"Biden",ID:"Trump",IL:"Biden",IN:"Trump",
+        IA:"Trump",KS:"Trump",KY:"Trump",LA:"Trump",ME:"Biden",MD:"Biden",MA:"Biden",
+        MI:"Biden",MN:"Biden",MS:"Trump",MO:"Trump",MT:"Trump",NE:"Trump",NV:"Biden",
+        NH:"Biden",NJ:"Biden",NM:"Biden",NY:"Biden",NC:"Trump",ND:"Trump",OH:"Trump",
+        OK:"Trump",OR:"Biden",PA:"Biden",RI:"Biden",SC:"Trump",SD:"Trump",TN:"Trump",
+        TX:"Trump",UT:"Trump",VT:"Biden",VA:"Biden",WA:"Biden",WV:"Trump",WI:"Biden",
+        WY:"Trump",DC:"Biden"
+      };
+
+      const WINNERS_2024 = {
+        AL:"Trump",AK:"Trump",AZ:"Trump",AR:"Trump",CA:"Harris",CO:"Harris",CT:"Harris",
+        DE:"Harris",FL:"Trump",GA:"Trump",HI:"Harris",ID:"Trump",IL:"Harris",IN:"Trump",
+        IA:"Trump",KS:"Trump",KY:"Trump",LA:"Trump",ME:"Harris",MD:"Harris",
+        MA:"Harris",MI:"Trump",MN:"Harris",MS:"Trump",MO:"Trump",MT:"Trump",
+        NE:"Trump",NV:"Trump",NH:"Harris",NJ:"Harris",NM:"Harris",NY:"Harris",
+        NC:"Trump",ND:"Trump",OH:"Trump",OK:"Trump",OR:"Harris",PA:"Trump",
+        RI:"Harris",SC:"Trump",SD:"Trump",TN:"Trump",TX:"Trump",UT:"Trump",
+        VT:"Harris",VA:"Harris",WA:"Harris",WV:"Trump",WI:"Trump",WY:"Trump",DC:"Harris"
+      };
+
+      function partyOf(winner) {
+        if (winner === "Biden" || winner === "Harris") return "Dem";
+        return "GOP";
+      }
+
+      function winnerColor(winner) {
+        return (winner === "Biden" || winner === "Harris") ? "#1d4ed8" : "#b91c1c";
+      }
+
+      function formatMoney(n) {
+        if (n == null) return "n/a";
+        if (n >= 1e9) return "$" + (n / 1e9).toFixed(1) + "B";
+        if (n >= 1e6) return "$" + (n / 1e6).toFixed(1) + "M";
+        if (n >= 1e3) return "$" + (n / 1e3).toFixed(1) + "k";
+        return "$" + n.toLocaleString();
+      }
+
+      // Donation ranges for choropleth
+      const donationRanges = {
+        2020: {min: Infinity, max: -Infinity},
+        2024: {min: Infinity, max: -Infinity}
+      };
+
+      function computeDonationRanges() {
+        [2020, 2024].forEach(year => {
+          let min = Infinity, max = -Infinity;
+          for (const st in window.DONATION_DATA) {
+            const v = window.DONATION_DATA[st]?.[year];
+            if (v != null) {
+              if (v < min) min = v;
+              if (v > max) max = v;
+            }
+          }
+          donationRanges[year].min = min;
+          donationRanges[year].max = max;
+        });
+      }
+
+      function donationColor(value, year) {
+        const range = donationRanges[year];
+        if (!isFinite(range.min) || !isFinite(range.max) || value == null) {
+          return "#e5e7eb";
+        }
+        const tRaw = (value - range.min) / (range.max - range.min || 1);
+        const t = Math.max(0, Math.min(1, tRaw));
+
+        const start = {r: 219, g: 234, b: 254}; // #dbeafe
+        const end   = {r: 29,  g: 78,  b: 216}; // #1d4ed8
+        const r = Math.round(start.r + (end.r - start.r) * t);
+        const g = Math.round(start.g + (end.g - start.g) * t);
+        const b = Math.round(start.b + (end.b - start.b) * t);
+        return `rgb(${r},${g},${b})`;
+      }
+
+      let CURRENT_YEAR = 2020;
+      let CURRENT_MODE = "winner";
+
+      function updateLegend() {
+        const legend = document.getElementById("legend");
+        if (!legend) return;
+
+        if (CURRENT_MODE === "winner") {
+          legend.innerHTML = `
+            <span class="swatch" style="background:#1d4ed8;"></span> Democratic win
+            &nbsp;&nbsp;
+            <span class="swatch" style="background:#b91c1c;"></span> Republican win
+          `;
+        } else {
+          legend.innerHTML = `
+            <span class="scale">
+              <span>Lower donations</span>
+              <span class="scale-box" style="background:rgb(219,234,254);"></span>
+              <span class="scale-box" style="background:rgb(96,165,250);"></span>
+              <span class="scale-box" style="background:rgb(37,99,235);"></span>
+              <span class="scale-box" style="background:rgb(29,78,216);"></span>
+              <span>Higher donations</span>
+            </span>
+          `;
+        }
+      }
+
+      function updateMap() {
+        // Keep hover/click colors equal to base color (no confusing highlight)
+        if (simplemaps_usmap_mapdata.main_settings) {
+          simplemaps_usmap_mapdata.main_settings.state_hover_color = "default";
+          simplemaps_usmap_mapdata.main_settings.state_click_color = "default";
+        }
+
+        const states = simplemaps_usmap_mapdata.state_specific;
+
+        Object.keys(states).forEach(st => {
+          const stateConf = states[st];
+          const donations = window.DONATION_DATA[st]?.[CURRENT_YEAR] ?? null;
+          const winners = CURRENT_YEAR === 2020 ? WINNERS_2020 : WINNERS_2024;
+          const winner = winners[st];
+
+          let color;
+          if (CURRENT_MODE === "winner") {
+            color = winnerColor(winner);
+          } else {
+            color = donationColor(donations, CURRENT_YEAR);
+          }
+
+          stateConf.color = color;
+          stateConf.hover_color = color;
+          stateConf.click_color = color;
+
+          const lines = [];
+          lines.push(`<strong>📍 ${stateConf.name}</strong>`);
+          if (winner) {
+            const party = partyOf(winner);
+            lines.push(`${CURRENT_YEAR} winner: ${winner} (${party})`);
+          }
+          if (donations != null) {
+            lines.push(`${CURRENT_YEAR} donations: ${formatMoney(donations)}`);
+          }
+          lines.push(`<em>Click for full 2020 vs 2024 comparison.</em>`);
+          stateConf.description = lines.join("<br>");
+        });
+
+        simplemaps_usmap.refresh();
+        updateLegend();
+      }
+
+      function openModalForState(stateId) {
+        const overlay = document.getElementById("usmap-modal-overlay");
+        const titleEl = document.getElementById("usmap-modal-title");
+        const bodyEl = document.getElementById("usmap-modal-body");
+        if (!overlay || !titleEl || !bodyEl) return;
+
+        const base = simplemaps_usmap_mapdata.state_specific[stateId];
+        if (!base) return;
+
+        const name = base.name;
+        const d2020 = window.DONATION_DATA[stateId]?.[2020] ?? null;
+        const d2024 = window.DONATION_DATA[stateId]?.[2024] ?? null;
+        const w2020 = WINNERS_2020[stateId];
+        const w2024 = WINNERS_2024[stateId];
+
+        const localMax = Math.max(d2020 || 0, d2024 || 0, 1);
+        const globalMax = Math.max(
+          donationRanges[2020].max || 0,
+          donationRanges[2024].max || 0,
+          localMax
+        );
+        const denom = globalMax || localMax;
+
+        const w2020Pct = d2020 != null ? Math.max(4, Math.round((d2020 / denom) * 100)) : 0;
+        const w2024Pct = d2024 != null ? Math.max(4, Math.round((d2024 / denom) * 100)) : 0;
+
+        titleEl.textContent = name;
+
+        const pill2020 = w2020
+          ? `<span class="usmap-pill ${partyOf(w2020)==="Dem" ? "dem" : "gop"}">${partyOf(w2020)}</span>`
+          : "";
+        const pill2024 = w2024
+          ? `<span class="usmap-pill ${partyOf(w2024)==="Dem" ? "dem" : "gop"}">${partyOf(w2024)}</span>`
+          : "";
+
+        bodyEl.innerHTML = `
+          <p class="usmap-muted">
+            Compare who won and how much presidential fundraising came from this state
+            across the 2020 and 2024 cycles.
+          </p>
+
+          <h3 class="usmap-section-title">2020 election ${pill2020}</h3>
+          <p><strong>Winner:</strong> ${w2020 || "n/a"}</p>
+          <p><strong>Donations:</strong> ${d2020 != null ? formatMoney(d2020) : "n/a"}</p>
+
+          <h3 class="usmap-section-title">2024 election ${pill2024}</h3>
+          <p><strong>Winner:</strong> ${w2024 || "n/a"}</p>
+          <p><strong>Donations:</strong> ${d2024 != null ? formatMoney(d2024) : "n/a"}</p>
+
+          <h3 class="usmap-section-title">Donations comparison</h3>
+          <div class="usmap-bar-row">
+            <div class="usmap-bar-label">2020</div>
+            <div class="usmap-bar-track">
+              <div class="usmap-bar-fill y2020" style="width:${w2020Pct}%;"></div>
+            </div>
+            <div class="usmap-bar-value">${d2020 != null ? formatMoney(d2020) : "n/a"}</div>
+          </div>
+          <div class="usmap-bar-row">
+            <div class="usmap-bar-label">2024</div>
+            <div class="usmap-bar-track">
+              <div class="usmap-bar-fill y2024" style="width:${w2024Pct}%;"></div>
+            </div>
+            <div class="usmap-bar-value">${d2024 != null ? formatMoney(d2024) : "n/a"}</div>
+          </div>
+        `;
+
+        overlay.style.display = "flex";
+      }
+
+      function closeModal() {
+        const overlay = document.getElementById("usmap-modal-overlay");
+        if (overlay) overlay.style.display = "none";
+      }
+
+      // Hook SimpleMaps events
+      simplemaps_usmap.hooks.complete = function () {
+        computeDonationRanges();
+        updateMap();
+      };
+
+      simplemaps_usmap.hooks.click_state = function (id) {
+        openModalForState(id);
+      };
+
+      document.addEventListener("DOMContentLoaded", function () {
+        const yearSelect = document.getElementById("year-select");
+        const modeSelect = document.getElementById("mode-select");
+        const overlay = document.getElementById("usmap-modal-overlay");
+        const closeBtn = document.getElementById("usmap-modal-close");
+
+        if (yearSelect) {
+          yearSelect.addEventListener("change", function () {
+            CURRENT_YEAR = parseInt(this.value, 10);
+            updateMap();
+          });
+        }
+
+        if (modeSelect) {
+          modeSelect.addEventListener("change", function () {
+            CURRENT_MODE = this.value;
+            updateMap();
+          });
+        }
+
+        if (closeBtn) {
+          closeBtn.addEventListener("click", closeModal);
+        }
+        if (overlay) {
+          overlay.addEventListener("click", function (e) {
+            if (e.target === overlay) {
+              closeModal();
+            }
+          });
+        }
+
+        updateLegend();
+      });
+    </script>
+  </body>
+</html>

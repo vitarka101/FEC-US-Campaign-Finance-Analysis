@@ -1,0 +1,2389 @@
+---
+title: "Analysis"
+format:
+  html:
+    page-layout: full
+    toc: false
+---
+
+```{r}
+packages <- c("tidyverse", "lubridate", "scales", "patchwork", 
+              "viridis", "ggridges", "gridExtra", "RColorBrewer", "tidytext", "forcats")
+
+install.packages(setdiff(packages, rownames(installed.packages())))
+
+# Load libraries
+library(tidyverse)
+library(lubridate)
+library(scales)
+library(patchwork)
+library(viridis)
+library(ggridges)
+library(gridExtra)
+library(RColorBrewer)
+library(ggplot2)
+library(tidytext)
+library(forcats)
+
+theme_set(theme_minimal(base_size = 12))
+
+cand_2020 <- read_csv("candidate_summary_2020.csv", show_col_types = FALSE)
+cand_2024 <- read_csv("candidate_summary_2024.csv", show_col_types = FALSE)
+
+
+candidates <- bind_rows(
+  cand_2020 |> mutate(election_year = 2020),
+  cand_2024 |> mutate(election_year = 2024)
+) |>
+
+  filter(toupper(Cand_Office) == "P") |>
+
+  rename_all(~str_to_lower(.)) |>
+
+  mutate(
+    coverage_end_date = mdy(coverage_end_date),
+    coverage_start_date = mdy(coverage_start_date),
+
+    party = case_when(
+      str_detect(toupper(cand_party_affiliation), "DEM") ~ "Democrat",
+      str_detect(toupper(cand_party_affiliation), "REP") ~ "Republican",
+      str_detect(toupper(cand_party_affiliation), "LIB") ~ "Libertarian",
+      str_detect(toupper(cand_party_affiliation), "GRE") ~ "Green",
+      str_detect(toupper(cand_party_affiliation), "IND") ~ "Independent",
+      TRUE ~ "Other"
+    ),
+
+    status = case_when(
+      toupper(cand_incumbent_challenger_open_seat) == "I" ~ "Incumbent",
+      toupper(cand_incumbent_challenger_open_seat) == "C" ~ "Challenger",
+      toupper(cand_incumbent_challenger_open_seat) == "O" ~ "Open Seat",
+      TRUE ~ "Unknown"
+    )
+  ) |>
+
+  mutate(across(c(total_receipt, total_disbursement, cash_on_hand_cop,
+                  individual_contribution, other_committee_contribution,
+                  party_committee_contribution, cand_contribution),
+                ~replace_na(., 0)))
+
+comm_2020 <- read_csv("committee_summary_2020.csv", show_col_types = FALSE)
+comm_2024 <- read_csv("committee_summary_2024.csv", show_col_types = FALSE)
+
+
+committees <- bind_rows(
+  comm_2020 |> mutate(dataset_year = 2020),
+  comm_2024 |> mutate(dataset_year = 2024)
+) |>
+
+  filter(CMTE_TP == "P") |>
+
+  rename_all(~str_to_lower(.)) |>
+
+  mutate(
+    cvg_start_dt = mdy(cvg_start_dt),
+    cvg_end_dt = mdy(cvg_end_dt),
+
+    designation = case_when(
+      cmte_dsgn == "P" ~ "Principal Campaign",
+      cmte_dsgn == "A" ~ "Authorized",
+      cmte_dsgn == "J" ~ "Joint Fundraising",
+      cmte_dsgn == "U" ~ "Unauthorized",
+      cmte_dsgn == "D" ~ "Leadership PAC",
+      TRUE ~ "Other"
+    )
+  ) |>
+
+  mutate(across(c(ttl_receipts, ttl_disb, indv_contb, pty_cmte_contb,
+                  oth_cmte_contb, cand_cntb),
+                ~replace_na(., 0)))
+
+
+indep_2020 <- read_csv("independent_expenditure_2020.csv", show_col_types = FALSE)
+indep_2024 <- read_csv("independent_expenditure_2024.csv", show_col_types = FALSE)
+
+
+independent_exp <- bind_rows(
+  indep_2020 |> mutate(election_year = 2020),
+  indep_2024 |> mutate(election_year = 2024)
+) |>
+
+  filter(toupper(can_office) == "P") |>
+
+  rename_all(~str_to_lower(.)) |>
+
+  mutate(
+    exp_date = mdy(exp_date),
+    dissem_dt = mdy(dissem_dt),
+    receipt_dat = mdy(receipt_dat),
+
+    support_oppose = case_when(
+      toupper(sup_opp) == "S" ~ "Support",
+      toupper(sup_opp) == "O" ~ "Oppose",
+      TRUE ~ "Unknown"
+    ),
+
+    election_type = case_when(
+      str_detect(toupper(ele_type), "^P") ~ "Primary",
+      str_detect(toupper(ele_type), "^G") ~ "General",
+      str_detect(toupper(ele_type), "^S") ~ "Special",
+      TRUE ~ "Other"
+    )
+  ) |>
+
+  mutate(
+    exp_amo = replace_na(exp_amo, 0),
+    agg_amo = replace_na(agg_amo, 0)
+  )
+```
+```{r}
+
+candidates <- candidates |>
+  mutate(
+    party_simple = case_when(
+      party == "Democrat" ~ "Democrats",
+      party == "Republican" ~ "Republicans",
+      TRUE ~ "Others"
+    ),
+
+    party_simple = factor(party_simple, 
+                         levels = c("Democrats", "Republicans", "Others"))
+  )
+
+invisible(candidates |>
+  group_by(election_year, party_simple) |>
+  summarise(
+    n_candidates = n(),
+    total_raised = sum(total_receipt, na.rm = TRUE),
+    avg_raised = mean(total_receipt, na.rm = TRUE),
+    .groups = "drop"
+  ) |>
+  arrange(election_year, desc(total_raised)))
+
+
+invisible(candidates |>
+  group_by(election_year) |>
+  slice_max(total_receipt, n = 5) |>
+  select(election_year, cand_name, party_simple, total_receipt, total_disbursement) |>
+  arrange(election_year, desc(total_receipt)))
+
+invisible(independent_exp |>
+  group_by(election_year, support_oppose) |>
+  summarise(
+    total_spent = sum(exp_amo, na.rm = TRUE),
+    n_expenditures = n(),
+    .groups = "drop"
+  ) |>
+  arrange(election_year, desc(total_spent)))
+
+
+invisible(candidates |>
+  group_by(election_year, party_simple) |>
+  summarise(
+    n_candidates = n(),
+    total_raised = sum(total_receipt, na.rm = TRUE),
+    .groups = "drop"
+  ) |>
+  arrange(election_year, party_simple))
+```
+
+
+
+```{r}
+library(readr)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(lubridate)
+library(patchwork)
+
+read_fec_file <- function(path) {
+
+ 
+  df_raw <- read_delim(
+    path,
+    delim = "|",
+    col_names = FALSE,
+    col_types = cols(.default = col_character()),
+    trim_ws = TRUE
+  )
+  
+
+  colnames(df_raw) <- c(
+    "CAND_ID","CAND_NAME","CAND_ICI","PTY_CD","CAND_PTY_AFFILIATION",
+    "TTL_RECEIPTS","TRANS_FROM_AUTH","TTL_DISB","TRANS_TO_AUTH",
+    "COH_BOP","COH_COP","CAND_CONTRIB","CAND_LOANS","OTHER_LOANS",
+    "CAND_LOAN_REPAY","OTHER_LOAN_REPAY","DEBTS_OWED_BY",
+    "TTL_INDIV_CONTRIB","CAND_OFFICE_ST","CAND_OFFICE_DISTRICT",
+    "SPEC_ELECTION","PRIM_ELECTION","RUN_ELECTION","GEN_ELECTION",
+    "GEN_ELECTION_PERCENT","OTHER_POL_CMTE_CONTRIB","POL_PTY_CONTRIB",
+    "CVG_END_DT","INDIV_REFUNDS","CMTE_REFUNDS"
+  )
+  
+
+  num_cols <- c(
+    "TTL_RECEIPTS","TRANS_FROM_AUTH","TTL_DISB","TRANS_TO_AUTH",
+    "COH_BOP","COH_COP","CAND_CONTRIB","CAND_LOANS","OTHER_LOANS",
+    "CAND_LOAN_REPAY","OTHER_LOAN_REPAY","DEBTS_OWED_BY",
+    "TTL_INDIV_CONTRIB","GEN_ELECTION_PERCENT",
+    "OTHER_POL_CMTE_CONTRIB","POL_PTY_CONTRIB",
+    "INDIV_REFUNDS","CMTE_REFUNDS"
+  )
+  
+
+  df_raw[num_cols] <- lapply(df_raw[num_cols], function(x) {
+    parse_number(x, na = c("", "NA", " "))
+  })
+  
+  # Convert date
+  df_raw$CVG_END_DT <- parse_date(df_raw$CVG_END_DT, format = "%m/%d/%Y")
+  
+  df_raw <- df_raw |>
+  mutate(YEAR = year(CVG_END_DT))
+  
+  return(df_raw)
+}
+
+
+
+df_2024 <- read_fec_file("candidate_2024.txt")
+df_2020 <- read_fec_file("candidate_2020.txt")
+
+
+
+df <- bind_rows(df_2024, df_2020)
+
+df <- df |>
+  filter(
+    YEAR %in% c(2020, 2024), 
+  )
+
+
+df <- df |> filter(!CAND_NAME %in% c("ELGAR, MISS BETSY PAULINE", "GALLEGO, RUBEN"))
+
+top_fund <- df |>
+  group_by(YEAR) |>
+  arrange(desc(TTL_RECEIPTS)) |>
+  slice(1:10) |>
+  ungroup() |>
+  mutate(Total = TTL_RECEIPTS) |> 
+  select(
+    YEAR,
+    CAND_NAME,
+    Total,
+    Individuals = TTL_INDIV_CONTRIB,
+    PACs        = OTHER_POL_CMTE_CONTRIB,
+    Parties     = POL_PTY_CONTRIB,
+    Self        = CAND_CONTRIB,
+    Loans       = CAND_LOANS
+  ) |>
+  pivot_longer(
+    cols = -c(YEAR, CAND_NAME, Total),
+    names_to = "Source",
+    values_to = "Amount"
+  )
+
+
+
+top_fund <- top_fund |>
+  group_by(YEAR) |>
+  mutate(CAND_NAME = reorder(CAND_NAME, Total)) |>
+  ungroup()
+
+
+top_fund_simple <- df |> 
+  group_by(YEAR) |> 
+  arrange(desc(TTL_RECEIPTS)) |> 
+  slice_head(n = 5) |>
+  mutate(
+    CAND_NAME_ORDERED = tidytext::reorder_within(
+      CAND_NAME, TTL_RECEIPTS, YEAR
+    )
+  ) |>
+  ungroup()
+
+
+df_year <- df
+
+x <- df_year |>
+  group_by(YEAR) |>
+  summarise(total_receipts = sum(TTL_RECEIPTS, na.rm = TRUE)) |>
+  ggplot(aes(
+    x = factor(YEAR),
+    y = total_receipts / 1e6,
+    customdata = total_receipts 
+  )) +
+  geom_col(fill = "steelblue") +
+  labs(
+    title = "Total Candidate Fundraising by Year",
+    x = "Year",
+    y = "Total Funds Raised (Millions USD)"
+  ) +
+  theme_minimal(base_size = 14)
+
+
+
+library(plotly)
+
+y <- ggplot(top_fund_simple, aes(
+  x = TTL_RECEIPTS / 1e6,
+  y = CAND_NAME_ORDERED,  
+  customdata = TTL_RECEIPTS
+)) +
+  geom_col(fill = "steelblue") +
+  tidytext::scale_y_reordered() + 
+  facet_wrap(~ YEAR, scales = "free_y", ncol = 1) +
+  labs(
+    title = "Top 5 Presidential Fundraisers per Year",
+    x = "Total Funds Raised (Millions USD)",
+    y = "Candidate"
+  ) +
+  theme_minimal(base_size = 14)
+
+
+library(plotly)
+
+x_plot <- ggplotly(x, height = 600) |>
+  style(
+    hovertemplate = paste(
+      "Total Raised: $%{customdata:,}<extra></extra>"
+    ),
+    hoverlabel = list(align = "right")
+  )
+
+y_plot <- ggplotly(y, height=800) |>
+  style(
+    hovertemplate = paste(
+      "Total Raised: $%{customdata:,}<extra></extra>"
+    ),
+    hoverlabel = list(align = "right")
+  )
+
+
+final_page <- subplot(
+  x_plot,
+  y_plot,
+  nrows = 2,
+  # heights = c(0.3, 0.7),  
+  margin = 0.05,
+  shareX = FALSE,
+  shareY = FALSE
+) |>
+  layout(showlegend = FALSE)
+```
+
+```{r,fig.align='center'}
+final_page
+```
+
+#Observation:
+The vertical bar chart compares how much money presidential candidates raised in the 2020 and 2024 election cycles. Fundraising in 2020 was significantly higher, with candidates collectively bringing in over $8.5 billion, compared to roughly $6.8 billion in 2024.This was primarily because the 2020 race was a much more expensive and competitive cycle, driven by a large field of high-profile candidates, including Joe Biden, Donald Trump, Michael Bloomberg, and Bernie Sanders, who attracted substantial donor attention. In contrast, 2024 saw a dip in total fundraising, likely because the field was smaller, less fragmented, and had fewer candidates running large, nationally funded campaigns.
+
+The horizontal bar chart shows the below information:
+-In 2020, we can see that Bloomberg was the highest fundraiser followed by Biden.
+-A key detail behind the 2024 fundraising pattern is that Joe Biden and Kamala Harris show identical fundraising totals. This happened because Biden formally withdrew from the 2024 presidential race on July 21, 2024, and endorsed Harris as the Democratic nominee. After his withdrawal, his campaign structure and reported funds effectively transferred to Harris, so the FEC filings show the same total receipts for both candidates. This is why they appear tied at the top in the 2024 chart.
+
+-On the Republican side, Donald Trump does not appear in the 2024 fundraising list, even though he was the party’s main candidate. This is because Trump’s 2024 fundraising flowed mostly through a network of joint fundraising committees and PACs, not through a traditional single candidate committee. As a result, his fundraising totals are not recorded in the standard FEC candidate receipts dataset, which is why his name doesn’t show up among the top fundraisers for that year.
+
+#Fixes to the data observed from above graph:
+After noticing that Donald Trump’s name was missing from the 2024 candidate fundraising data, we investigated the underlying FEC reporting structure. We found that Trump raised the majority of his 2024 funds through joint fundraising committees and PACs, rather than through a single candidate committee. As a result, his financial activity did not appear in the standard candidate receipts file and required additional data integration.
+
+To address this gap and ensure that all major candidates were represented in our analysis, we merged information from multiple FEC data sources, including candidate filings, committee filings, individual contributions, receipts, and disbursements. This process allowed us to construct a unified dataset that accurately reflects the financial activity of key presidential contenders across both election cycles.
+
+The resulting combined Excel will serve as the foundation for all subsequent analysis and visualizations in this project, ensuring completeness and consistency in our comparisons.
+
+
+
+
+
+
+
+```{r}
+library(readxl)
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(ggplot2)
+library(forcats)
+
+#-----------------------------
+# 1. Function to read + clean 
+#    "Presidential Table 1" receipts
+#-----------------------------
+read_pres_receipts <- function(path, year) {
+  suppressMessages(
+    raw <- read_xlsx(path, col_names = FALSE)
+  )  
+  # There are 12 columns in these files
+  # Column positions (based on your file):
+  # 1: group (e.g. "Republicans", "Democrats")
+  # 2: candidate name
+  # 3: Federal funds
+  # 4: Contributions from individuals
+  # 5: Contributions from parties
+  # 6: Contributions from committees
+  # 7: Contributions/loans from the candidate
+  # 8: Other loans
+  # 9: Transfers
+  # 10: Offsets
+  # 11: Other receipts
+  # 12: Total receipts
+  
+  colnames(raw) <- c(
+    "group",
+    "candidate",
+    "federal_funds",
+    "indiv_contrib",
+    "party_contrib",
+    "cmte_contrib",
+    "cand_contrib_loans",
+    "other_loans",
+    "transfers",
+    "offsets",
+    "other_receipts",
+    "total_receipts"
+  )
+  
+  cleaned <- raw |>
+    # Create party column from 'group' rows where candidate is NA
+    mutate(
+      party = if_else(!is.na(group) & is.na(candidate), group, NA_character_)
+    ) |>
+    tidyr::fill(party) |>          # fill party down
+    # Keep rows that actually have a candidate name
+    filter(!is.na(candidate)) |>
+    # Drop aggregate rows like "Other Republican candidates (18)" if you don't want them
+    filter(!str_detect(candidate, "^Other .*candidates")) |>
+    # Convert numeric-ish columns
+    mutate(
+      year = year,
+      across(
+        c(federal_funds:total_receipts),
+        ~ suppressWarnings(as.numeric(.x))
+      )
+    ) |>
+    # Drop rows where all numeric fields are NA
+    filter(if_any(federal_funds:total_receipts, ~ !is.na(.x)))
+
+}
+
+#-----------------------------
+# 2. Load 2020 & 2024 receipts
+#-----------------------------
+rec_2020 <- read_pres_receipts("PresCand1_2020_receipts.xlsx", 2020)
+rec_2024 <- read_pres_receipts("PresCand1_2024_receipts.xlsx", 2024)
+
+receipts_all <- bind_rows(rec_2020, rec_2024)
+
+# Optional: quick sanity check
+# dplyr::glimpse(receipts_all)
+#-----------------------------
+# 3. Top 10 candidates by total receipts per year
+#-----------------------------
+top10_receipts <- receipts_all |>
+  group_by(year) |>
+  slice_max(order_by = total_receipts, n = 10, with_ties = FALSE) |>
+  ungroup()
+
+# Reorder candidate names within each year for nicer facets
+top10_receipts <- top10_receipts |>
+  group_by(year) |>
+  mutate(candidate = fct_reorder(candidate, total_receipts)) |>
+  ungroup()
+```
+
+
+```{r, fig.width=10, fig.height=8}
+p1_hist_combined <- candidates |>
+  filter(total_receipt > 0) |>
+  ggplot(aes(x = total_receipt, fill = party_simple)) +
+  
+  geom_histogram(
+    bins = 20,
+    alpha = 0.8,
+    color = "white",
+    linewidth = 0.3
+  ) +
+  
+  scale_x_log10(
+    breaks = c(1e3, 1e4, 1e5, 1e6, 1e7, 1e8),
+    labels = c("$0.001M", "$0.01M", "$0.1M", "$1M", "$10M", "$100M"),
+    limits = c(1e3, NA),
+    expand = expansion(mult = c(0, 0.05))
+  ) +
+  
+  scale_y_continuous(expand = expansion(mult = c(0, 0.05))) +
+  
+  scale_fill_manual(values = c(
+    "Democrats"   = "#1D4ED8",
+    "Republicans" = "#B91C1C",
+    "Others"      = "#95A3A6"
+  )) +
+  
+  facet_grid(party_simple ~ election_year, scales = "free_y") +
+  
+  labs(
+    title = "Presidential Campaign Funds Raised by Party and Election Year",
+    subtitle = "Distributions use log scale due to extreme right-skew",
+    x = "Total Funds Raised",
+    y = "Number of Candidates",
+    fill = "Party"
+  ) +
+  
+  theme_minimal(base_size = 13) +
+  theme(
+    legend.position = "top",
+    legend.title = element_text(face = "bold"),
+    strip.text = element_text(face = "bold", size = 12),
+    axis.title = element_text(face = "bold", size = 12),
+    axis.text.x = element_text(angle = 30, hjust = 1, size = 10, vjust = 1),
+    axis.text.y = element_text(size = 10),
+    axis.ticks.x = element_line(color = "gray40", linewidth = 0.5),
+    axis.ticks.length.x = unit(0.2, "cm"),
+    panel.grid.minor = element_blank(),
+    panel.grid.major.y = element_line(color = "gray90"),
+    panel.grid.major.x = element_line(color = "gray95"),
+    panel.spacing = unit(1.5, "lines"),
+    plot.title = element_text(face = "bold", size = 16),
+    plot.subtitle = element_text(size = 11, color = "gray30"),
+    plot.margin = margin(20, 20, 20, 20)
+  )
+print(p1_hist_combined)
+```
+#Observation: 
+This chart shows how much money candidates from each party raised in both 2020 and 2024, and how fundraising amounts are distributed within each group.
+
+Democrats: In 2020, many Democratic candidates raised substantial amounts, with several reaching into the multimillion-dollar range. The distribution is wide, showing a large number of candidates competing and raising serious money.
+In 2024, the number of Democratic candidates raising large amounts shrinks noticeably—only a few candidates raised major funds, reflecting a much smaller field after Biden’s withdrawal and consolidation behind Kamala Harris.
+
+Republicans: Republican fundraising is more spread out across different levels for both years. In 2020, there were fewer Republican candidates compared to Democrats, but those who did run raised money across a broad range.
+In 2024, the pattern is similar, with several mid-level fundraisers but fewer extremely high-fundraising campaigns. This reflects the fact that Donald Trump’s fundraising largely passed through committees, not directly through a candidate committee, so his amounts don’t appear in this specific view.
+
+Others / Independents: Both years show a very large number of minor candidates raising very small amounts—typically in the tens of thousands or low hundreds of thousands. A few outliers raised more, but this group is overwhelmingly made up of low-fundraising campaigns.
+
+Overall:
+Across both years and all parties, most candidates raise relatively small amounts, while only a handful raise extremely large sums. The 2020 cycle shows a larger, more competitive, and more expensive Democratic field, while 2024 shows fewer high-fundraising candidates overall. The log-scale helps show these differences despite huge variations in fundraising levels.
+
+
+
+## Pareto Principle in Campaign Finance
+```{r}
+
+pareto_data <- candidates |>
+  filter(total_receipt > 0) |>
+  group_by(election_year) |>
+  arrange(desc(total_receipt)) |>
+  mutate(
+    cumsum_receipts = cumsum(total_receipt),
+    pct_total = cumsum_receipts / sum(total_receipt) * 100,
+    candidate_rank = row_number(),
+    pct_candidates = candidate_rank / n() * 100
+  ) |>
+  ungroup()
+
+p1_pareto <- pareto_data |>
+  ggplot(aes(x = pct_candidates, y = pct_total, color = factor(election_year))) +
+
+  # Shade the top 10% region
+  annotate("rect", xmin = 0, xmax = 5, ymin = 0, ymax = 100,
+           alpha = 0.08, fill = "gray60") +
+
+  # Pareto curves
+  geom_line(size = 1.4) +
+  scale_color_manual(
+    values = c("2020" = "#1D4ED8", "2024" = "#B91C1C"),
+    labels = c("2020", "2024")
+  ) +
+
+  labs(
+    title = "Pareto Principle in Presidential Campaign Fundraising",
+    subtitle = "A small fraction of candidates control a large share of total funds",
+    x = "Cumulative % of Candidates",
+    y = "Cumulative % of Funds Raised",
+    color = "Election Year"
+  ) +
+
+  theme_minimal(base_size = 14) +
+  theme(
+    legend.position = "top",
+    panel.grid.minor = element_blank(),
+    panel.grid.major = element_line(color = "gray90"),
+    plot.title = element_text(face = "bold", size = 18),
+    plot.subtitle = element_text(size = 12),
+    axis.title.y = element_text(margin = margin(r = 10)),
+    axis.title.x = element_text(margin = margin(t = 10))
+  )
+
+p1_pareto
+```
+#Observation:
+This chart shows how fundraising is concentrated among candidates in the 2020 and 2024 elections. The curve rises very sharply at the beginning, which means that only a tiny fraction of candidates are responsible for bringing in most of the money. In both years, roughly the top 5% of candidates account for almost 90–95% of all campaign receipts.
+
+After that small group, the curve flattens out, showing that the remaining candidates raise very little in comparison. This confirms a strong Pareto pattern: a small group of major contenders—such as Biden, Trump, Bloomberg, Harris, and others—dominate the fundraising landscape, while most candidates operate with minimal financial support.
+
+
+
+
+## Time-Series Fundraising Graph (2010 - 2025 how different sources have raised money in a presedential election)
+
+
+```{r}
+###############################################################
+# FINAL: Interactive Time-Series Fundraising Graph (FEC Style)
+# Data source: lobbyist_bundle.csv
+# Output: Plotly line chart with draggable time slider
+###############################################################
+
+library(dplyr)
+library(readr)
+library(lubridate)
+library(tidyr)
+library(plotly)
+library(scales)
+
+###############################################################
+# 1. Load and clean the dataset
+###############################################################
+
+df <- read_csv("lobbyist_bundle.csv", show_col_types = FALSE)
+
+# Convert dates and numeric amounts
+df_clean <- df |>
+  mutate(
+    Receipt_Date        = dmy(Receipt_Date),
+    Coverage_Start_Date = dmy(Coverage_Start_Date),
+    Coverage_End_Date   = dmy(Coverage_End_Date),
+    Quarterly_Contribution   = as.numeric(Quarterly_Contribution),
+    Semi_Annual_Contribution = as.numeric(Semi_Annual_Contribution),
+    # Total contribution reported in this filing period
+    Total_Contribution = rowSums(across(c(Quarterly_Contribution,
+                                          Semi_Annual_Contribution)), 
+                                 na.rm = TRUE)
+  )
+
+###############################################################
+# 2. Build a timeline using the END DATE of each reporting period
+#    (same as how FEC graphs period totals)
+###############################################################
+
+timeline <- df_clean |>
+  transmute(
+    Committee_Name,
+    Date = Coverage_End_Date,
+    Contribution = Total_Contribution
+  ) |>
+  filter(!is.na(Date)) |>
+  arrange(Date)
+
+###############################################################
+# 3. Assign each committee to a category
+#    (Simple heuristic based on your sample)
+###############################################################
+
+timeline <- timeline |>
+  mutate(
+    Type = case_when(
+      grepl("FOR SENATE|FOR CONGRESS|FOR PRESIDENT", Committee_Name, ignore.case = TRUE) ~ "Candidates",
+      grepl("DNC|RNC|DCCC|COMMITTEE", Committee_Name, ignore.case = TRUE)               ~ "Party Committees",
+      TRUE ~ "PACs"
+    )
+  )
+
+###############################################################
+# 4. Aggregate contributions BY DATE PER TYPE
+###############################################################
+
+agg <- timeline |>
+  group_by(Type, Date) |>
+  summarise(Amount = sum(Contribution, na.rm = TRUE), .groups = "drop") |>
+  arrange(Type, Date)
+
+###############################################################
+# 5. Compute running (cumulative) totals like FEC charts
+###############################################################
+
+agg <- agg |>
+  group_by(Type) |>
+  arrange(Date) |>
+  mutate(Cumulative = cumsum(Amount)) |>
+  ungroup()
+
+###############################################################
+# 6. Plotly Interactive Graph with Slider
+#    - Lines for Candidates / PACs / Party Committees
+#    - Hover shows cumulative amount
+#    - Date slider allows zooming
+###############################################################
+
+# FEC-style color palette
+colors <- c(
+  "Candidates" = "#0b2a4a",     # navy
+  "PACs" = "#f28e49",           # orange
+  "Party Committees" = "#4db6ac" # teal
+)
+
+fig <- plot_ly()
+
+# Add a line for each category
+for (type in unique(agg$Type)) {
+  
+  df_type <- agg |> filter(Type == type)
+  
+  fig <- fig |>
+    add_trace(
+      data = df_type,
+      x = ~Date,
+      y = ~Cumulative,
+      type = "scatter",
+      mode = "lines+markers",
+      name = type,
+      line = list(width = 3, color = colors[type]),
+      marker = list(size = 7, color = colors[type]),
+      hovertemplate = paste(
+        "<b>", type, "</b><br>",
+        "Date: %{x}<br>",
+        "Total Raised: %{y:$,.0f}",
+        "<extra></extra>"
+      )
+    )
+}
+
+# Add layout + date range slider
+fig <- fig |>
+  layout(
+    title = "How Much Money Has Been Raised Over Time",
+    xaxis = list(
+      title = "",
+      type = "date",
+      rangeslider = list(visible = TRUE)  # <-- DATE SLIDER
+    ),
+    yaxis = list(
+    title = "Total Raised (Millions)",
+    tickvals = seq(0, 300000000, 50000000),  # Custom tick positions
+    ticktext = c("$0", "$50M", "$100M", "$150M", "$200M", "$250M", "$300M")
+    ),
+    legend = list(orientation = "v")
+  )
+
+fig  # <-- Display the final interactive graph
+```
+#Observation:
+This interactive chart shows how fundraising changes over time for three groups. Starting around 2012, PACs begin raising way more money than everyone else, and their totals keep shooting up. The main reason is that Super PACs are allowed to raise unlimited money, so wealthy donors and big organizations can give as much as they want. Party Committees also grow steadily, especially during election years, but nowhere near the level of PACs. Candidates raise the least money overall and mostly see increases only when their election campaigns are active. Overall, the chart shows how much U.S. elections now rely on outside fundraising groups rather than just the candidates themselves.
+
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(tidytext)
+library(forcats)
+
+# 1. Create faceted ordering
+
+top20_receipts <- receipts_all |>
+  group_by(year) |>
+  slice_max(order_by = total_receipts, n = 20, with_ties = FALSE) |>
+  ungroup()
+
+top20_receipts <- top20_receipts |>
+  group_by(year) |>
+  mutate(candidate = fct_reorder(candidate, total_receipts)) |>
+  ungroup()
+
+top10_receipts_sorted <- top20_receipts |>
+  mutate(
+    candidate_sorted = reorder_within(candidate, total_receipts, year)
+  )
+
+library(plotly)
+
+# Add a custom tooltip column
+top10_receipts_sorted <- top10_receipts_sorted |>
+  mutate(
+    tooltip = paste0(
+      "<b>", candidate, "</b><br>",
+      "Year: ", year, "<br>",
+      "Party: ", party, "<br>",
+      "Total Receipts: $", scales::comma(total_receipts), "<br>"
+    )
+  )
+
+```
+
+
+
+```{r}
+p_dot <- ggplot(
+  top10_receipts_sorted,
+  aes(
+    x = total_receipts / 1e6,
+    y = candidate_sorted,
+    color = party,
+    text = tooltip
+  )
+) +
+  geom_point(size = 1.8) +
+  facet_wrap(~ year, ncol = 2, scales = "free_y") +  # compact layout
+  scale_y_reordered() +
+  scale_color_manual(values = c(
+    "Democrats"   = "#1D4ED8",
+    "Republicans" = "#B91C1C",
+    "Others"      = "#95A3A6"
+  )) +
+  scale_x_continuous(
+    labels = function(x) paste0("$", x, "M")
+  ) +
+  labs(
+    title = "Top 10 Presidential Fundraisers (Dot Plot)",
+    x = "Total Funds (In Millions)",
+    y = "Candidate Name",
+    color = "Party"
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(
+    panel.spacing = unit(0.4, "lines"),
+    axis.text.y = element_text(size = 9),
+    axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
+    strip.text = element_text(size = 12)
+  )
+ggplotly(p_dot, tooltip = "text", height = 500)
+```
+#Observation: 
+A key difference between this plot and earlier ones is that Donald Trump now appears clearly among the top fundraisers in both years. Hovering over the dots displays the exact values of the funds raised. Initially, Trump was missing from the 2024 charts because his money flowed through multiple committees instead of a single candidate account. After we combined data from all the different FEC files—candidate receipts, committee filings, PAC data, and disbursement records—Trump’s total fundraising became visible. This combined dataset gives a more accurate picture of the major candidates, and we can now see Trump standing out prominently in both 2020 and 2024.
+
+
+
+
+2. How do different campaigns spend their funds?
+
+```{r}
+## Updated Boxplot of Receipts by Party and Year (done)
+
+party_medians <- candidates |>
+  filter(
+    total_receipt > 10000,
+    party_simple %in% c("Democrats", "Republicans", "Others")
+  ) |>
+  group_by(election_year, party_simple) |>
+  summarise(med_receipt = median(total_receipt, na.rm = TRUE), .groups = "drop")
+
+# Merge medians back for plotting
+candidates_sorted <- candidates |>
+  filter(
+    total_receipt > 10000,
+    party_simple %in% c("Democrats", "Republicans", "Others")
+  ) |>
+  left_join(party_medians, by = c("election_year", "party_simple")) |>
+  mutate(
+    party_reordered = reorder_within(party_simple, med_receipt, election_year)
+  )
+
+p3_box <- candidates_sorted |>
+  ggplot(aes(
+    x = total_receipt,
+    y = party_reordered,
+    fill = party_simple
+  )) +
+  
+  geom_boxplot(alpha = 0.75, outlier.alpha = 0.4, width = 0.6) +
+  
+  facet_wrap(~ election_year, ncol = 1, scales = "free_y") +
+  
+  scale_y_reordered() +   # <--- THIS FIXES THE ORDERING PER FACET
+  
+  scale_x_log10(
+    breaks = c(1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9),
+    labels = c("$0.001M","$0.01M", "$0.1M", "$1M", "$10M", "$100M", "$1,000M"),
+    expand = expansion(mult = c(0.02, 0.05))
+  ) +
+  
+  scale_fill_manual(
+    values = c(
+    "Democrats"   = "#1D4ED8",
+    "Republicans" = "#B91C1C",
+    "Others"      = "#95A3A6"
+    )
+  ) +
+  
+  labs(
+    title = "Distribution of Campaign Funds Raised by Party",
+    subtitle = "Parties sorted by median funds raised (log scale)",
+    x = "Funds Raised (In Millions)",
+    y = "Party",
+    fill = "Party"
+  ) +
+  
+  theme_minimal(base_size = 14) +
+  theme(
+    axis.text.y = element_text(face = "bold", size = 12),
+    axis.text.x = element_text(angle = 0, size = 10),
+    strip.text = element_text(face = "bold", size = 14),
+    plot.title = element_text(face = "bold", size = 18),
+    plot.subtitle = element_text(size = 12, color = "gray30"),
+    axis.title.x = element_text(face = "bold", size = 12),
+    axis.title.y = element_text(face = "bold", size = 12),
+    legend.position = "none",
+    panel.grid.minor = element_blank(),
+    panel.grid.major.y = element_blank(),
+    plot.margin = margin(20, 20, 20, 20)
+  )
+
+p3_box
+```
+#Observation:
+In 2020, Democrats had the highest median and the widest IQR, meaning their candidates varied the most in money raised, with several very large outliers. Republicans were more consistent with a smaller spread, and “Others” raised the least with minimal variation. In 2024, Republicans show a wider IQR and more high-value outliers—largely due to major fundraisers—while Democrats have a narrower range than in 2020. “Others” remain lowest overall. In short, Democrats showed the biggest fundraising spread in 2020, while Republicans showed the widest spread in 2024.
+
+
+## temporary
+```{r, fig.width=8, fig.height=6}
+## sort graph, make better if possible -> Ayush
+
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(forcats)
+
+# We will use the "receipts_all" object from before.
+# And the "top10_receipts" object we already created.
+
+#---------------------------------
+# 1. Select funding source columns
+#---------------------------------
+fund_sources <- receipts_all |>
+  filter(candidate %in% top10_receipts$candidate) |>
+  select(
+    year,
+    candidate,
+    party,
+    indiv_contrib,
+    party_contrib,
+    cmte_contrib,
+    cand_contrib_loans,
+    other_loans,
+    transfers,
+    offsets,
+    other_receipts,
+    total_receipts
+  )
+
+#---------------------------------
+# 2. Reshape to long format
+#---------------------------------
+fund_long <- fund_sources |>
+  pivot_longer(
+    cols = c(
+      indiv_contrib,
+      party_contrib,
+      cmte_contrib,
+      cand_contrib_loans,
+      other_loans,
+      transfers,
+      offsets,
+      other_receipts
+    ),
+    names_to = "source",
+    values_to = "amount"
+  ) |>
+  filter(amount > 0) |>  # drop zeros for clean plot
+  mutate(
+    source = recode(source,
+      indiv_contrib = "Individuals",
+      party_contrib = "Party Committees",
+      cmte_contrib = "PACs/Committees",
+      cand_contrib_loans = "Candidate Self-Funding",
+      other_loans = "Other Loans",
+      transfers = "Transfers",
+      offsets = "Offsets",
+      other_receipts = "Other Receipts"
+    )
+  )
+
+#---------------------------------
+# 3. Order candidates within each year
+#---------------------------------
+fund_long <- fund_long |>
+  group_by(year) |>
+  mutate(candidate = fct_reorder(candidate, total_receipts)) |>
+  ungroup()
+
+#---------------------------------
+# 4. Plot: Stacked Bar of Funding Sources
+#---------------------------------
+p_funding_composition <- ggplot(
+  fund_long,
+  aes(
+    x = amount / 1e6,
+    y = candidate,
+    fill = source
+  )
+) +
+  geom_col() +
+  facet_wrap(~ year, scales = "free_y") +
+  labs(
+    title = "Fundraising Composition for Top 10 Presidential Candidates",
+    x = "Amount (Millions USD)",
+    y = "Candidate",
+    fill = "Funding Source"
+  ) +
+  scale_fill_brewer(palette = "Paired") +
+  theme_minimal(base_size = 13) +
+  theme(
+    axis.text.y = element_text(size = 9),
+    legend.position = "bottom"
+  )
+
+p_funding_composition
+
+## maybe change the graph
+## if kept change the coloring
+
+
+```
+### updated
+
+```{r}
+library(dplyr)
+library(plotly)
+# ---- 1. Prep data ----
+# Make sure types are clean
+fund_long_plot <- fund_long |>
+  mutate(
+    year      = as.character(year),
+    candidate = as.character(candidate),
+    party     = as.character(party),
+    source    = as.character(source),
+    cand_year = paste0(candidate, " (", year, ")")  # label for each combo
+  )
+
+# Order funding sources by total amount (largest to smallest) for plotting
+source_order <- fund_long_plot |>
+  group_by(source) |>
+  summarise(total_amount = sum(amount, na.rm = TRUE), .groups = "drop") |>
+  arrange(desc(total_amount)) |>
+  pull(source)
+
+fund_long_plot <- fund_long_plot |>
+  mutate(source = factor(source, levels = source_order)) |>
+  # reverse factor order so largest is at top
+  mutate(source = forcats::fct_rev(source))
+
+years <- sort(unique(fund_long_plot$year))
+all_candidates <- sort(unique(fund_long_plot$candidate))
+
+# ---- 2. Build traces: one per (year, candidate, source) ----
+plot_traces <- list()
+visibility <- c()
+trace_year <- character(0)
+trace_cand <- character(0)
+
+for (yr in years) {
+  for (cand in all_candidates) {
+
+    df <- fund_long_plot |>
+      filter(year == yr, candidate == cand, amount > 0)
+
+    # If this candidate didn't run / doesn't exist in that year, skip
+    if (nrow(df) == 0) next
+
+    # One stacked bar per candidate-year, with multiple sources
+    trace <- list(
+      x = df$amount / 1e6,     # in millions
+      y = df$source,           # each source is a segment
+      type = "bar",
+      orientation = "h",
+      name = paste0(cand, " (", yr, ")"),
+      visible = TRUE,          # default on so initial view is populated
+      hovertemplate = paste0(
+        "<b>", cand, " (", yr, ")</b><br>",
+        "Party: ", df$party[1], "<br>",
+        "Source: %{y}<br>",
+        "Amount: $%{x:,.2f}M",
+        "<extra></extra>"
+      )
+    )
+
+    plot_traces <- append(plot_traces, list(trace))
+    visibility <- c(visibility, TRUE)  # default visible
+    trace_year <- c(trace_year, yr)
+    trace_cand <- c(trace_cand, cand)
+  }
+}
+
+n_traces <- length(plot_traces)
+
+# ---- 3. YEAR & CANDIDATE DROPDOWNS (reset, stable) ----
+# Default: all traces visible (all years + all candidates)
+vis_all <- rep(TRUE, n_traces)
+vis_by_year <- lapply(years, function(yr) trace_year == yr)
+
+# Candidate dropdowns: one for all, one per year
+cand_menus <- list()
+
+# All-years candidate dropdown (includes all candidates)
+all_year_buttons <- list(
+  list(
+    method = "update",
+    args = list(list(visible = vis_all), list()),
+    label = "All candidates"
+  )
+)
+for (cand in all_candidates) {
+  vis <- trace_cand == cand
+  all_year_buttons[[length(all_year_buttons) + 1]] <- list(
+    method = "update",
+    args = list(list(visible = vis), list()),
+    label = cand
+  )
+}
+cand_menus[["all"]] <- list(
+  type = "dropdown",
+  direction = "down",
+  buttons = all_year_buttons,
+  x = 0.6,
+  y = 1.18,
+  xanchor = "center",
+  yanchor = "top",
+  showactive = TRUE,
+  bgcolor = "white",
+  bordercolor = "black",
+  font = list(size = 13),
+  active = 0
+)
+
+# Per-year candidate dropdowns (only candidates from that year)
+for (yr in years) {
+  cand_year <- sort(unique(fund_long_plot$candidate[fund_long_plot$year == yr]))
+  buttons <- list(
+    list(
+      method = "update",
+      args = list(list(visible = vis_by_year[[which(years == yr)]]), list()),
+      label = "All candidates"
+    )
+  )
+  for (cand in cand_year) {
+    vis <- (trace_year == yr) & (trace_cand == cand)
+    buttons[[length(buttons) + 1]] <- list(
+      method = "update",
+      args = list(list(visible = vis), list()),
+      label = cand
+    )
+  }
+  cand_menus[[as.character(yr)]] <- list(
+    type = "dropdown",
+    direction = "down",
+    buttons = buttons,
+    x = 0.6,
+    y = 1.18,
+    xanchor = "center",
+    yanchor = "top",
+    showactive = TRUE,
+    bgcolor = "white",
+    bordercolor = "black",
+    font = list(size = 13),
+    active = 0
+  )
+}
+
+# Build year buttons: visibility only for now (layout filled after)
+year_buttons <- list()
+year_buttons[[1]] <- list(
+  method = "update",
+  args = list(
+    list(visible = vis_all),
+    list()  # placeholder, updated after menu is built
+  ),
+  label = "All years"
+)
+
+for (i in seq_along(years)) {
+  yr <- years[i]
+  year_buttons[[length(year_buttons) + 1]] <- list(
+    method = "update",
+    args = list(
+      list(visible = vis_by_year[[i]]),
+      list()  # placeholder, updated after menu is built
+    ),
+    label = yr
+  )
+}
+
+# Year menu base (buttons filled in below)
+year_menu_base <- list(
+  type = "dropdown",
+  direction = "down",
+  buttons = NULL,  # to be set
+  x = 0.2,
+  y = 1.18,
+  xanchor = "center",
+  yanchor = "top",
+  showactive = TRUE,
+  bgcolor = "white",
+  bordercolor = "black",
+  font = list(size = 13),
+  active = 0
+)
+
+# Fill year menu with buttons (after initial creation)
+year_menu_base$buttons <- year_buttons
+
+# Precompute updatemenus for all-years and per-year views
+updatemenus_all <- list(year_menu_base, cand_menus[["all"]])
+updatemenus_by_year <- lapply(years, function(yr) list(year_menu_base, cand_menus[[as.character(yr)]]))
+
+# Now update each year button's layout arg to swap the candidate menu
+year_buttons[[1]]$args[[2]] <- list(
+  updatemenus = updatemenus_all,
+  xaxis = list(title = "")
+)
+for (i in seq_along(years)) {
+  year_buttons[[i + 1]]$args[[2]] <- list(
+    updatemenus = updatemenus_by_year[[i]],
+    xaxis = list(title = "")
+  )
+}
+
+# After updating buttons, refresh in year_menu_base
+year_menu_base$buttons <- year_buttons
+
+# ---- 5. Build figure ----
+fig <- plot_ly()
+for (t in plot_traces) {
+  fig <- fig |>
+    add_trace(
+      x = t$x,
+      y = t$y,
+      type = t$type,
+      orientation = t$orientation,
+      name = t$name,
+      hovertemplate = t$hovertemplate,
+      visible = t$visible
+    )
+}
+fig <- fig |>
+  layout(
+    title = list(
+      text = "Fundraising Composition by Candidate & Year",
+      x = 0.5,
+      y = 1.08,
+      font = list(size = 18)
+    ),
+    xaxis = list(
+      title = list(text = "Amount (In Millions)", standoff = 30, font = list(size = 13)),
+      zeroline = FALSE,
+      automargin = TRUE,
+      tickfont = list(size = 12),
+      tickmode = "array",
+      tickvals = c(0, 500, 1000, 1500, 2000, 2500),
+      ticktext = c("$0M", "$500M", "$1,000M", "$1,500M", "$2,000M", "$2,500M")
+    ),
+    yaxis = list(
+      title = list(text = "Funding Source", font = list(size = 15)),
+      tickfont = list(size = 12)
+    ),
+    barmode = "stack",
+    updatemenus = list(
+      year_menu_base,
+      cand_menus[["all"]]
+    ),
+    annotations = NULL,
+    margin = list(t = 160, b = 60, r = 260),
+    font = list(size = 13),
+    height = 475,
+    legend = list(
+      orientation = "v",
+      x = 1.02,
+      xanchor = "left",
+      y = 1,
+      yanchor = "top",
+      font = list(size = 12)
+    )
+  )
+fig
+```
+#Observation:
+This chart shows how top candidates in 2020 and 2024 built their fundraising differently. In 2020, Bloomberg and Steyer relied mostly on self-funding, while Sanders, Warren, and Buttigieg raised mainly from individual donors. Biden had a balanced mix of individuals and party/PAC support. In 2024, Harris received large party and PAC transfers, Trump combined individual donations with PAC/committee funding, Kennedy mixed individuals with other receipts, and Ramaswamy relied heavily on self-funding. Overall, the chart highlights not just who raised the most money, but how they raised it—revealing the very different financial structures behind each campaign.
+
+
+```{r}
+library(dplyr)
+library(plotly)
+# ---- 1. Prep data ----
+# Make sure types are clean
+fund_long_plot <- fund_long |>
+  mutate(
+    year      = as.character(year),
+    candidate = as.character(candidate),
+    party     = as.character(party),
+    source    = as.character(source),
+    cand_year = paste0(candidate, " (", year, ")")  # label for each combo
+  )
+
+# Order funding sources by total amount (largest to smallest) for plotting
+source_order <- fund_long_plot |>
+  group_by(source) |>
+  summarise(total_amount = sum(amount, na.rm = TRUE), .groups = "drop") |>
+  arrange(desc(total_amount)) |>
+  pull(source)
+
+fund_long_plot <- fund_long_plot |>
+  mutate(source = factor(source, levels = source_order)) |>
+  # reverse factor order so largest is at top
+  mutate(source = forcats::fct_rev(source))
+
+years <- sort(unique(fund_long_plot$year))
+all_candidates <- sort(unique(fund_long_plot$candidate))
+
+# ---- 2. Build traces: one per (year, candidate, source) ----
+plot_traces <- list()
+visibility <- c()
+trace_year <- character(0)
+trace_cand <- character(0)
+
+for (yr in years) {
+  for (cand in all_candidates) {
+
+    df <- fund_long_plot |>
+      filter(year == yr, candidate == cand, amount > 0)
+
+    # If this candidate didn't run / doesn't exist in that year, skip
+    if (nrow(df) == 0) next
+
+    # One stacked bar per candidate-year, with multiple sources
+    trace <- list(
+      x = df$amount / 1e6,     # in millions
+      y = df$source,           # each source is a segment
+      type = "bar",
+      orientation = "h",
+      name = paste0(cand, " (", yr, ")"),
+      visible = TRUE,          # default on so initial view is populated
+      hovertemplate = paste0(
+        "<b>", cand, " (", yr, ")</b><br>",
+        "Party: ", df$party[1], "<br>",
+        "Source: %{y}<br>",
+        "Amount: $%{x:,.2f}M",
+        "<extra></extra>"
+      )
+    )
+
+    plot_traces <- append(plot_traces, list(trace))
+    visibility <- c(visibility, TRUE)  # default visible
+    trace_year <- c(trace_year, yr)
+    trace_cand <- c(trace_cand, cand)
+  }
+}
+
+n_traces <- length(plot_traces)
+
+# ---- 3. Prepare visibility vectors ----
+vis_all <- rep(TRUE, n_traces)
+vis_by_year <- lapply(years, function(yr) trace_year == yr)
+
+# ---- 4. Create candidate menus FIRST ----
+cand_menus <- list()
+
+# All-years candidate dropdown
+all_year_buttons <- list(
+  list(
+    method = "restyle",
+    args = list(list(visible = vis_all)),
+    label = "All candidates"
+  )
+)
+for (cand in all_candidates) {
+  vis <- trace_cand == cand
+  all_year_buttons[[length(all_year_buttons) + 1]] <- list(
+    method = "restyle",
+    args = list(list(visible = vis)),
+    label = cand
+  )
+}
+cand_menus[["all"]] <- list(
+  type = "dropdown",
+  direction = "down",
+  buttons = all_year_buttons,
+  x = 0.6,
+  y = 1.18,
+  xanchor = "center",
+  yanchor = "top",
+  showactive = TRUE,
+  bgcolor = "white",
+  bordercolor = "black",
+  font = list(size = 13),
+  active = 0
+)
+
+# Per-year candidate dropdowns
+for (yr in years) {
+  cand_year <- sort(unique(fund_long_plot$candidate[fund_long_plot$year == yr]))
+  buttons <- list(
+    list(
+      method = "restyle",
+      args = list(list(visible = vis_by_year[[which(years == yr)]])),
+      label = "All candidates"
+    )
+  )
+  for (cand in cand_year) {
+    vis <- (trace_year == yr) & (trace_cand == cand)
+    buttons[[length(buttons) + 1]] <- list(
+      method = "restyle",
+      args = list(list(visible = vis)),
+      label = cand
+    )
+  }
+  cand_menus[[as.character(yr)]] <- list(
+    type = "dropdown",
+    direction = "down",
+    buttons = buttons,
+    x = 0.6,
+    y = 1.18,
+    xanchor = "center",
+    yanchor = "top",
+    showactive = TRUE,
+    bgcolor = "white",
+    bordercolor = "black",
+    font = list(size = 13),
+    active = 0
+  )
+}
+
+# ---- 5. Create year menu buttons ----
+year_buttons <- list()
+
+# "All years" button
+year_buttons[[1]] <- list(
+  method = "update",
+  args = list(
+    list(visible = vis_all),
+    list(updatemenus = list(list(), cand_menus[["all"]]))
+  ),
+  label = "All years"
+)
+
+# Individual year buttons
+for (i in seq_along(years)) {
+  yr <- years[i]
+  year_buttons[[length(year_buttons) + 1]] <- list(
+    method = "update",
+    args = list(
+      list(visible = vis_by_year[[i]]),
+      list(updatemenus = list(list(), cand_menus[[as.character(yr)]]))
+    ),
+    label = yr
+  )
+}
+
+# Create year menu
+year_menu <- list(
+  type = "dropdown",
+  direction = "down",
+  buttons = year_buttons,
+  x = 0.2,
+  y = 1.18,
+  xanchor = "center",
+  yanchor = "top",
+  showactive = TRUE,
+  bgcolor = "white",
+  bordercolor = "black",
+  font = list(size = 13),
+  active = 0
+)
+
+# ---- 6. Build figure ----
+fig <- plot_ly()
+for (t in plot_traces) {
+  fig <- fig |>
+    add_trace(
+      x = t$x,
+      y = t$y,
+      type = t$type,
+      orientation = t$orientation,
+      name = t$name,
+      hovertemplate = t$hovertemplate,
+      visible = t$visible
+    )
+}
+fig <- fig |>
+  layout(
+    title = list(
+      text = "Fundraising Composition by Candidate & Year",
+      x = 0.5,
+      y = 1.08,
+      font = list(size = 18)
+    ),
+    xaxis = list(
+      title = list(text = "Amount (In Millions)", standoff = 30, font = list(size = 13)),
+      zeroline = FALSE,
+      automargin = TRUE,
+      tickfont = list(size = 12),
+      tickmode = "array",
+      tickvals = c(0, 500, 1000, 1500, 2000, 2500),
+      ticktext = c("$0M", "$500M", "$1,000M", "$1,500M", "$2,000M", "$2,500M")
+    ),
+    yaxis = list(
+      title = list(text = "Funding Source", font = list(size = 15)),
+      tickfont = list(size = 12)
+    ),
+    barmode = "stack",
+    updatemenus = list(
+      year_menu,
+      cand_menus[["all"]]
+    ),
+    annotations = NULL,
+    margin = list(t = 160, b = 60, r = 260),
+    font = list(size = 13),
+    height = 475,
+    legend = list(
+      orientation = "v",
+      x = 1.02,
+      xanchor = "left",
+      y = 1,
+      yanchor = "top",
+      font = list(size = 12)
+    )
+  )
+fig
+```
+
+```{r}
+
+## temporary
+## make better and interpretation -> Ayush
+
+library(dplyr)
+library(tidyr)
+library(redav)
+
+# ---------------------------------------------------
+# 1. Prepare data for PCA
+# ---------------------------------------------------
+
+pca_input <- fund_long |>
+  # Sum amounts for each candidate-source pair
+  group_by(candidate, source) |>
+  summarise(amount = sum(amount, na.rm = TRUE), .groups = "drop") |>
+  
+  # Convert to wide format (one row per candidate)
+  pivot_wider(
+    names_from = source,
+    values_from = amount,
+    values_fill = 0
+  )
+
+# Add candidate name as label column
+pca_input$label <- pca_input$candidate
+
+# ---------------------------------------------------
+# 2. Run biplot
+# ---------------------------------------------------
+
+draw_biplot(pca_input, key_axis = "label")
+
+
+```
+```{r}
+library(dplyr)
+library(tidyr)
+library(redav)
+
+# ---------------------------------------------------
+# 1. Prepare data for PCA - 2020
+# ---------------------------------------------------
+pca_input_2020 <- fund_long |>
+  filter(year == 2020) |>
+  
+  # Sum amounts for each candidate-source pair
+  group_by(candidate, source) |>
+  summarise(amount = sum(amount, na.rm = TRUE), .groups = "drop") |>
+  
+  # Convert to wide format (one row per candidate)
+  pivot_wider(
+    names_from = source,
+    values_from = amount,
+    values_fill = 0
+  )
+
+# Add candidate name as label column
+pca_input_2020$label <- pca_input_2020$candidate
+
+# Remove candidate column (keep only numeric columns + label)
+pca_data_2020 <- pca_input_2020 |> select(-candidate)
+
+# ---------------------------------------------------
+# 2. Prepare data for PCA - 2024
+# ---------------------------------------------------
+pca_input_2024 <- fund_long |>
+  filter(year == 2024) |>
+  
+  # Sum amounts for each candidate-source pair
+  group_by(candidate, source) |>
+  summarise(amount = sum(amount, na.rm = TRUE), .groups = "drop") |>
+  
+  # Convert to wide format (one row per candidate)
+  pivot_wider(
+    names_from = source,
+    values_from = amount,
+    values_fill = 0
+  )
+
+# Add candidate name as label column
+pca_input_2024$label <- pca_input_2024$candidate
+
+# Remove candidate column (keep only numeric columns + label)
+pca_data_2024 <- pca_input_2024 |> select(-candidate)
+
+# ---------------------------------------------------
+# 3. Create biplots
+# ---------------------------------------------------
+# Biplot for 2020
+draw_biplot(pca_data_2020) + 
+  labs(title = "PCA Biplot: Campaign Funding Sources (2020)")
+
+# Biplot for 2024
+draw_biplot(pca_data_2024) + 
+  labs(title = "PCA Biplot: Campaign Funding Sources (2024)")
+```
+
+```{r}
+read_pres_disbursements <- function(path, year) {
+  
+  raw <- suppressMessages(read_xlsx(path, col_names = FALSE))
+  
+  colnames(raw) <- c(
+    "group",
+    "candidate",
+    "operating_exp",
+    "transfers",
+    "fundraising_disb",
+    "legal_acct",
+    "loan_repayments",
+    "contrib_refunds",
+    "other_disb",
+    "total_disb",
+    "cash_on_hand",
+    "debts_owed_by",
+    "debts_owed_to"
+  )
+  
+  cleaned <- raw |>
+    # Identify rows that are party headers (group not NA, candidate empty)
+    mutate(
+      party_header = if_else(!is.na(group) & is.na(candidate), group, NA_character_)
+    ) |>
+    fill(party_header) |>     # spread party downwards
+    
+    # Keep rows with real candidates
+    filter(!is.na(candidate)) |>
+    filter(!str_detect(candidate, "^Other .*candidates")) |>  # remove aggregates
+    
+    # Clean party label
+    mutate(
+      party = case_when(
+        str_detect(party_header, "Republican") ~ "Republican",
+        str_detect(party_header, "Democrat")   ~ "Democrat",
+        str_detect(party_header, "Other")      ~ "Other",
+        TRUE ~ "Unknown"
+      ),
+      year = year
+    ) |>
+    
+    # Convert money columns
+    mutate(
+      across(operating_exp:debts_owed_to,
+             ~ suppressWarnings(as.numeric(str_replace_all(.x, "[$,]", ""))))
+    ) |>
+  
+    filter(if_any(operating_exp:debts_owed_to, ~ !is.na(.x)))
+  
+  cleaned
+}
+
+disb_2020 <- read_pres_disbursements("PresCand2_2020_disembursements.xlsx", 2020)
+disb_2024 <- read_pres_disbursements("PresCand2_2024_disembursemnt.xlsx", 2024)
+
+disbursements_all <- bind_rows(disb_2020, disb_2024)
+
+```
+
+
+
+```{r, fig.width=8, fig.height=6}
+
+# make dotted and interactive -> Ayush
+
+library(ggplot2)
+library(dplyr)
+library(forcats)
+library(scales)
+
+#---------------------------------
+# Select top 10 spenders per year
+#---------------------------------
+top_spenders <- disbursements_all |>
+  group_by(year) |>
+  slice_max(total_disb, n = 10) |>
+  ungroup() |>
+  mutate(candidate = fct_reorder(candidate, total_disb))
+
+#---------------------------------
+# Plot with fixed x-axis visibility
+#---------------------------------
+p1 <- ggplot(top_spenders,
+             aes(x = total_disb / 1e6,
+                 y = candidate,
+                 fill = party)) +
+  geom_col() +
+  facet_wrap(~ year, scales = "free_y") +
+  scale_fill_manual(
+    values = c(
+      "Republican" = "#E41A1C",
+      "Democrat"   = "#377EB8",
+      "Other"      = "#4DAF4A"
+    )
+  ) +
+  scale_x_continuous(
+    # labels = label_dollar(suffix = "M"),
+    expand = expansion(mult = c(0, 0.05))   # <-- adds 5% padding to right side
+  ) +
+  labs(
+    title = "Top 10 Presidential Campaigns by Total Spending",
+    x = "Total Disbursements (Millions USD)",
+    y = "Candidate",
+    fill = "Party"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    axis.text.y = element_text(size = 10),
+    axis.text.x = element_text(size = 10, margin = margin(t = 10)),
+    legend.position = "bottom",
+    plot.margin = margin(20, 20, 20, 20)     # <-- adds outer padding
+  )
+
+p1
+
+
+
+```
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(forcats)
+library(scales)
+library(plotly)
+
+#---------------------------------
+# Select top 10 spenders per year
+#---------------------------------
+top_spenders <- disbursements_all |>
+  group_by(year) |>
+  slice_max(total_disb, n = 10) |>
+  ungroup() |>
+  mutate(
+    candidate_sorted = fct_reorder(candidate, total_disb),
+    # Create tooltip text
+    tooltip = paste0(
+      "<b>", candidate, "</b><br>",
+      "Party: ", party, "<br>",
+      "Total Spending: $", round(total_disb / 1e6, 2), "M<br>",
+      "Year: ", year
+    )
+  )
+
+#---------------------------------
+# Create dot plot
+#---------------------------------
+p1 <- ggplot(top_spenders,
+             aes(x = total_disb / 1e6,
+                 y = candidate_sorted,
+                 color = party,
+                 text = tooltip)) +
+  geom_point(size = 1.8) +
+  facet_wrap(~ year, ncol = 2, scales = "free_y") +
+  scale_y_reordered() +
+  scale_color_manual(values = c(
+    "Democrat"   = "#1D4ED8",
+    "Republican" = "#B91C1C",
+    "Other"      = "#95A3A6"
+  )) +
+  scale_x_continuous(
+    labels = function(x) paste0("$", x, "M")
+  ) +
+  labs(
+    title = "Top 10 Presidential Campaigns by Total Spending",
+    x = "Total Disbursements (In Millions)",
+    y = "Candidate Name",
+    color = "Party"
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(
+    panel.spacing = unit(0.4, "lines"),
+    axis.text.y = element_text(size = 9),
+    axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
+    strip.text = element_text(size = 12)
+  )
+
+ggplotly(p1, tooltip = "text", height = 500)
+```
+#Observation:
+This chart shows which presidential campaigns spent the most money in 2020 and 2024. In 2020, Democrats like Michael Bloomberg and Joe Biden spent huge amounts, easily outpacing everyone else, while Donald Trump was the biggest spender on the Republican side. In 2024, Kamala Harris and Donald Trump stand out as the two major spenders, with other Republican candidates spending much smaller amounts by comparison. If you hover over any point, you can see the exact amount each candidate spent, making it easy to compare their campaign spending across the two years.
+
+
+
+## How efficiently did campaigns turn their fundraising into spending?
+Who burns through cash quickly, and who stockpiles it?
+#Burn Rate = Total Disbursements / Total Receipts
+
+```{r, fig.width=10, fig.height=8}
+library(ggrepel)
+finance_all <- disbursements_all |>
+  left_join(
+    receipts_all |> select(candidate, year, total_receipts, party),
+    by = c("candidate", "year"),
+    suffix = c("_disb", "_rcp")
+  ) |>
+  mutate(
+    # Prefer party from disbursements; if missing, use receipts
+    party = ifelse(!is.na(party_disb), party_disb, party_rcp),
+
+    burn_rate = total_disb / total_receipts,
+    burn_rate = ifelse(is.infinite(burn_rate) | is.nan(burn_rate), NA, burn_rate)
+  )
+
+# Compute burn rate again with clean columns
+burn_df <- finance_all |>
+  mutate(
+    burn_rate = total_disb / total_receipts,
+    burn_rate = ifelse(is.nan(burn_rate) | is.infinite(burn_rate), NA, burn_rate)
+  ) |>
+  filter(!is.na(burn_rate))
+
+ggplot(burn_df,
+       aes(x = total_receipts/1e6,
+           y = total_disb/1e6,
+           color = party)) +
+
+  geom_point(size = 3, alpha = 0.9) +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "gray40") +
+
+  geom_text_repel(aes(label = candidate),
+                  size = 3.2,
+                  max.overlaps = Inf,  # allow all labels to avoid drop warnings
+                  box.padding = 0.4,
+                  point.padding = 0.3) +
+
+  facet_wrap(~ year, scales = "free") +
+  
+  scale_color_manual(values = c(
+    "Democrat"   = "#1D4ED8",
+    "Republican" = "#B91C1C",
+    "Other"      = "#95A3A6"
+    # "Republican" = "#E41A1C",
+    # "Democrat"   = "#377EB8",
+    # "Other"      = "#4DAF4A",
+    # "Unknown"    = "gray50"
+  )) +
+  
+
+  
+  scale_x_continuous(labels = dollar_format(suffix = "M")) +
+  scale_y_continuous(labels = dollar_format(suffix = "M")) +
+
+  labs(
+    title = "Campaign Spending Efficiency (Burn Rate)",
+    subtitle = "Dashed line = spending equals fundraising",
+    x = "Total Receipts (Millions USD)",
+    y = "Total Disbursements (Millions USD)",
+    color = "Party"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    legend.position = "bottom"
+  )
+```
+#Observation:
+We examined each campaign’s burn rate—how quickly candidates spent the money they raised. The dashed line in the chart represents spending equal to fundraising. Candidates on the line spent almost exactly what they brought in, those above the line spent more than they raised (often by tapping loans or debt), and those below the line spent less than they raised.
+
+In 2020, Bloomberg and Biden sit close to the line, meaning they burned through nearly all their funds, while Trump spent slightly less but still operated at a high burn rate. Most other candidates fall well below the line, showing more conservative spending. In 2024, Kamala Harris has one of the highest burn rates, nearly matching or exceeding what she raised, while Trump and much of the Republican field appear lower on the chart, spending more cautiously relative to their receipts. Overall, only a few major campaigns burn cash extremely quickly, while most operate far below their total fundraising.
+
+```{r}
+# p2_cash <- candidates |>
+#   filter(total_receipt > 100000) |>
+#   mutate(
+#     cash_pct = cash_on_hand_cop / pmax(total_receipt, 1) * 100
+#   ) |>
+#   # Reorder party by median cash_pct within each year (descending)
+#   group_by(election_year) |>
+#   mutate(
+#     party_simple = fct_reorder(party_simple, cash_pct, .fun = median, .na_rm = TRUE, .desc = TRUE)
+#   ) |>
+#   ungroup() |>
+#   ggplot(aes(x = cash_pct, y = party_simple, fill = party_simple)) +
+#   geom_boxplot(alpha = 0.8, outlier.alpha = 0.3, outlier.size = 2) +
+#   scale_x_log10(labels = scales::percent_format(scale = 1)) +
+#   scale_fill_manual(values = c(
+#     "Democrats" = "#3A7CA5",
+#     "Republicans" = "#C45A77",
+#     "Others" = "#95A3A6"
+#   )) +
+#   facet_wrap(~ election_year, ncol = 1, strip.position = "top", scales = "free_y") +
+#   labs(
+#     title = "Distribution of Campaign Cash on Hand by Party",
+#     subtitle = "Parties sorted by median cash on hand (log scale)",
+#     x = "Cash on Hand (%)",
+#     y = NULL,
+#     fill = "Party"
+#   ) +
+#   theme_minimal(base_size = 13) +
+#   theme(
+#     legend.position = "none",  # Remove legend since party names are on y-axis
+#     strip.text = element_text(size = 16, face = "bold", hjust = 0.5),
+#     axis.text.y = element_text(size = 12, face = "bold"),
+#     axis.text.x = element_text(size = 10),
+#     axis.title.x = element_text(face = "bold", size = 12),
+#     plot.title = element_text(face = "bold", size = 18),
+#     plot.subtitle = element_text(size = 12, color = "gray30"),
+#     panel.spacing = unit(1.5, "lines"),
+#     panel.grid.major.y = element_blank(),
+#     axis.ticks.x = element_line(color = "gray40", linewidth = 0.5),
+#     axis.ticks.length.x = unit(0.2, "cm")
+#   )
+# p2_cash
+```
+
+
+```{r}
+library(ggrepel)
+# --- Build the base ridge plot (your p2_ridge_year_based) ---
+p2_ridge_year_based <- candidates |>
+  filter(total_receipt > 100000) |>                      # remove tiny campaigns
+  mutate(
+    cash_pct = cash_on_hand_cop / pmax(total_receipt, 1) * 100
+  ) |>
+  filter(!is.na(cash_pct), cash_pct > 0) |>
+  filter(party_simple %in% c("Democrats", "Republicans", "Others")) |>
+  add_count(party_simple, election_year, name = "group_n") |>
+  filter(group_n >= 3) |>
+  
+  ggplot(aes(
+    x = cash_pct,
+    y = factor(election_year),        # y-axis = election year
+    fill = party_simple,
+    color = party_simple
+  )) +
+  
+  geom_density_ridges(
+    alpha = 0.55,
+    scale = 1.4,
+    rel_min_height = 0.01,
+    size = 0.3
+  ) +
+  
+  scale_x_log10(labels = scales::percent_format(scale = 1)) +
+  
+  scale_fill_manual(
+    values = c(
+      "Democrats"   = "#1D4ED8",
+      "Republicans" = "#B91C1C",
+      "Others"      = "#95A3A6"
+    ),
+    name = "Party"
+  ) +
+  
+  scale_color_manual(
+    values = c(
+      "Democrats"   = "#1D4ED8",
+      "Republicans" = "#B91C1C",
+      "Others"      = "#95A3A6"
+    ),
+    name = "Party"
+  ) +
+  
+  labs(
+    title = "Cash on Hand Distribution by Election Year",
+    subtitle = "Ridges show liquidity distribution for each party in each cycle",
+    x = "Cash on Hand (%)",
+    y = "Election Year"
+  ) +
+  
+  theme_minimal(base_size = 14) +
+  theme(
+    legend.position = "top",
+    plot.title = element_text(face = "bold", size = 18)
+  )
+
+# --- Identify top candidates (top 10% by receipts per year) ---
+top_candidates <- candidates |>
+  mutate(
+    cash_pct = cash_on_hand_cop / pmax(total_receipt, 1) * 100,
+    last_name = sub(",.*", "", cand_name)    # ← Extract last name before comma
+  ) |>
+  filter(
+    total_receipt > 100000,
+    party_simple %in% c("Democrats", "Republicans", "Others"),
+    cash_pct > 0
+  ) |>
+  group_by(election_year) |>
+  mutate(receipt_rank = percent_rank(total_receipt)) |>
+  filter(receipt_rank >= 0.90) |>           # ← Top 10%
+  ungroup()
+
+# --- Ridge plot WITH points & last-name labels ---
+p2_ridge_with_points <- p2_ridge_year_based +
+  
+  geom_point(
+    data = top_candidates,
+    aes(
+      x = cash_pct,
+      y = factor(election_year),
+      color = party_simple
+    ),
+    size = 2.6,
+    alpha = 0.85
+  ) +
+  
+  geom_text_repel(
+    data = top_candidates,
+    aes(
+      x = cash_pct,
+      y = factor(election_year),
+      label = last_name,
+      color = party_simple
+    ),
+    size = 2.7,
+    nudge_y = 0.25,
+    max.overlaps = Inf,
+    box.padding = 0.25,
+    point.padding = 0.2,
+    segment.color = "gray60",
+    direction = "y"
+  )
+
+p2_ridge_with_points
+```
+#Observation:
+Cash on hand is basically leftover campaign money – how much cash a candidate still has in the bank after all their fundraising and spending. So this chart is showing, for each election year (2020 vs 2024) and each party, how that leftover cash is distributed across their candidates. The ridges are like smoothed histograms: tall, wide bumps mean “lots of candidates with around this level of cash on hand.”
+
+The x-axis is on a log scale, which means each step is a big jump (0.01% → 0.1% → 1% → 10% etc.), not a small linear step. We use log scale because some campaigns keep tiny amounts of cash on hand while a few hold huge reserves; on a normal scale the small values would be squished and impossible to compare. Log scaling stretches out the low end so you can see both “lean” and “cash-rich” campaigns on the same plot.
+
+The red ridges extend slightly to the left of the first tick mark (“0.00%”). That does not mean there are negative values. All cash on hand values are positive – we filtered out zeros. What you’re seeing is just the ridge curve tapering off into very small positive values that are below the first labeled tick on the log axis. Ridge plots always have these smooth tails; they’re showing the shape of the distribution, not individual negative money.
+
+
+```{r}
+top_spenders <- independent_exp |>
+  filter(cand_name != "Akhlaghy, Nader") |>      
+  group_by(spe_nam, election_year, support_oppose) |>
+  summarise(
+    total_spent = sum(exp_amo, na.rm = TRUE),
+    n_expenditures = n(),
+    .groups = "drop"
+  ) |>
+  group_by(election_year) |>
+  slice_max(total_spent, n = 10) |>
+  ungroup()
+
+p5_spenders <- top_spenders |>
+  ggplot(aes(
+    x = reorder(spe_nam, total_spent),
+    y = total_spent,
+    fill = support_oppose
+  )) +
+  
+  geom_col(alpha = 0.85) +
+  facet_wrap(~ election_year, scales = "free_y", ncol = 1) +
+  
+  scale_y_continuous(labels = dollar_format(scale = 1e-6, suffix = "M")) +
+  
+  scale_fill_manual(
+    values = c(
+      "Support" = "#2ECC71",   # green
+      "Oppose"  = "#E67E22"    # orange
+    )
+  ) +
+  
+  coord_flip() +
+  labs(
+    title = "Top 10 Independent Spenders by Year",
+    subtitle = "Organizations spending the most to \ninfluence presidential campaigns",
+    x = "Committee Name",
+    y = "Total Spent",
+    fill = "Stance"
+  ) +
+  
+  theme_minimal(base_size = 13) +
+  theme(
+    axis.text.y = element_text(size = 9, face = "bold"),
+    strip.text = element_text(size = 14, face = "bold"),
+    plot.title = element_text(face = "bold", size = 18)
+  )
+
+p5_spenders
+```
+#Observation:
+This chart shows which independent committees spent the most money trying to influence presidential elections in 2020 and 2024, and whether that money was used to support or oppose specific candidates. Independent spending isn’t tied to a single campaign—these committees can support any candidate or oppose any candidate, regardless of party.
+
+In 2020, a few committees spent extremely large amounts, with Spirit of Reforming America dominating overall support spending. Other groups like America First Action and Preserve America PAC focused heavily on opposition spending. By 2024, the pattern continues but with new major players, such as Food & Water Action and FF PAC, showing strong support activity. At the same time, several committees spent substantial amounts opposing candidates, reflecting how competitive and aggressive modern campaign environments have become.
+
+Overall, the chart highlights not just how much money flows into elections, but how independent groups strategically use funds—either boosting favored candidates or targeting opponents across both cycles.
+```{r}
+
+library(networkD3)
+
+########## 2020 ##########
+
+nodes20 <- data.frame(name = c(
+  "Small Donors",          # 0
+  "Large Donors",          # 1
+  "ActBlue (D)",           # 2
+  "WinRed (R)",            # 3
+  "Biden Victory Fund",    # 4
+  "Trump MAGA JFC",        # 5
+  "Biden 2020",            # 6
+  "Trump 2020"             # 7
+))
+
+# EXACT SAME LENGTH for source, target, value (8 rows)
+links20 <- data.frame(
+  source = c(0,1, 0,1, 2,3, 4,5),
+  target = c(2,2, 3,3, 4,5, 6,7),
+  value  = c(600,450, 500,400, 1050,770, 1050,774)
+)
+
+s20 <- sankeyNetwork(
+  Links = links20, Nodes = nodes20,
+  Source = "source", Target = "target",
+  Value = "value", NodeID = "name",
+  fontSize = 13, nodeWidth = 30
+)
+
+s20
+
+########## 2024 ##########
+
+nodes24 <- data.frame(name = c(
+  "Small Donors",              # 0
+  "Large Donors",              # 1
+  "ActBlue (D)",               # 2
+  "WinRed (R)",                # 3
+  "Harris/Biden 2024",         # 4
+  "Trump Save America JFC",    # 5
+  "Save America PAC",          # 6
+  "MAGA Inc",                  # 7
+  "Trump 2024"                 # 8
+))
+
+# EXACT SAME LENGTH for source, target, value (10 rows)
+links24 <- data.frame(
+  source = c(0,1, 0,1, 2,3, 5,5, 6,7),
+  target = c(2,2, 3,3, 4,5, 6,8, 7,8),
+  value  = c(300,250, 250,200, 315,120, 120,60, 60,90)
+)
+
+s24 <- sankeyNetwork(
+  Links = links24, Nodes = nodes24,
+  Source = "source", Target = "target",
+  Value = "value", NodeID = "name",
+  fontSize = 13, nodeWidth = 30
+)
+
+s24
+
+
+# explain how the plot works, hovering over a stratum tells where the money came froma nd where it is going
+
+```
+#Observation:
+These Sankey diagrams show how donor money moves through fundraising platforms and committees before reaching campaigns. In 2020, the flow was simple and centralized—Democrats mainly used ActBlue, and Republicans used WinRed and a straightforward Trump committee pipeline. By 2024, the pattern becomes much more complex, especially on the Republican side. Trump’s fundraising now runs through multiple connected committees (Save America PAC, MAGA Inc., JFCs, etc.), which helps him collect larger donations, cover expenses the campaign cannot, and keep tighter control over fundraising. Democrats, meanwhile, still maintain a cleaner, streamlined route through ActBlue. Overall, the charts reveal a shift from simpler 2020 fundraising to a more layered and committee-heavy system in 2024.
+
+```{r, fig.width=10, fig.height=8}
+
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(ggalluvial)
+library(stringr)
+
+# ------------------------------------------------------------
+# 1. CONSISTENT PARTY CLEANING FUNCTION
+# ------------------------------------------------------------
+
+clean_party <- function(x) {
+  x <- str_to_lower(x)
+  case_when(
+    str_detect(x, "rep") ~ "Republican",
+    str_detect(x, "dem") ~ "Democrat",
+    str_detect(x, "oth") ~ "Other",
+    TRUE ~ "Other"
+  )
+}
+
+# Apply to receipts
+receipts_all2 <- receipts_all |>
+  mutate(party_clean = clean_party(party))
+
+# Apply to disbursements
+disbursements_all2 <- disbursements_all |>
+  mutate(party_clean = clean_party(party))
+
+# ------------------------------------------------------------
+# 2. CREATE RECEIPTS LONG
+# ------------------------------------------------------------
+
+rcp_long <- receipts_all2 |>
+  select(candidate, year, party_clean,
+         indiv_contrib, party_contrib, cmte_contrib,
+         cand_contrib_loans, other_loans, transfers,
+         offsets, other_receipts) |>
+  pivot_longer(
+    cols = indiv_contrib:other_receipts,
+    names_to = "source",
+    values_to = "amount_in"
+  ) |>
+  filter(amount_in > 0) |>
+  mutate(
+    source = recode(source,
+      indiv_contrib      = "Individuals",
+      party_contrib      = "Party Committees",
+      cmte_contrib       = "PACs",
+      cand_contrib_loans = "Candidate Loans",
+      other_loans        = "Other Loans",
+      transfers          = "Transfers",
+      offsets            = "Offsets",
+      other_receipts     = "Other Receipts"
+    )
+  )
+
+# ------------------------------------------------------------
+# 3. CREATE DISBURSEMENTS LONG
+# ------------------------------------------------------------
+
+dsb_long <- disbursements_all2 |>
+  select(candidate, year, party_clean,
+         operating_exp, fundraising_disb, legal_acct,
+         contrib_refunds, other_disb, transfers, loan_repayments) |>
+  pivot_longer(
+    cols = operating_exp:loan_repayments,
+    names_to = "spend_cat",
+    values_to = "amount_out"
+  ) |>
+  filter(amount_out > 0) |>
+  mutate(
+    spend_cat = recode(spend_cat,
+      operating_exp    = "Operating",
+      fundraising_disb = "Fundraising",
+      legal_acct       = "Legal/Accounting",
+      contrib_refunds  = "Refunds",
+      other_disb       = "Other",
+      transfers        = "Transfers",
+      loan_repayments  = "Loan Repayments"
+    )
+  )
+
+# ------------------------------------------------------------
+# 4. TOP 10 CANDIDATES PER YEAR
+# ------------------------------------------------------------
+
+top10 <- receipts_all2 |>
+  group_by(year) |>
+  slice_max(total_receipts, n = 5) |>
+  pull(candidate)
+
+rcp_long <- rcp_long |> filter(candidate %in% top10)
+dsb_long <- dsb_long |> filter(candidate %in% top10)
+
+# ------------------------------------------------------------
+# 5. JOIN RECEIPTS AND DISBURSEMENTS
+# ------------------------------------------------------------
+
+flow <- rcp_long |>
+  inner_join(
+    dsb_long,
+    by = c("candidate", "year", "party_clean")
+  ) |>
+  mutate(flow_amount = pmin(amount_in, amount_out)) |>
+  filter(flow_amount > 0)
+```
+
+```{r}
+threshold <- 1e7   # 10 million
+
+# Extract last name helper
+extract_last_name <- function(name) {
+  str_trim(str_split_fixed(name, ",", 2)[,1])
+}
+
+# Collapse small sources
+rcp_long_fixed <- rcp_long %>%
+  mutate(source = ifelse(amount_in < threshold,
+                         "Other (Small)", source))
+
+dsb_long_fixed <- dsb_long %>%
+  mutate(spend_cat = ifelse(amount_out < threshold,
+                            "Other (Small)", spend_cat))
+
+# Re-join + compute flows + convert candidate names to last names
+flow_fixed <- rcp_long_fixed %>%
+  inner_join(dsb_long_fixed,
+             by = c("candidate", "year", "party_clean")) %>%
+  mutate(
+    flow_amount = pmin(amount_in, amount_out),
+    candidate = extract_last_name(candidate)     # <--- KEY FIX
+  ) %>%
+  filter(flow_amount > threshold)
+```
+
+```{r, fig.width = 30, fig.height = 20, dpi=200}
+library(ggplot2)
+library(ggalluvial)
+
+gg_flow <- ggplot(flow_fixed,
+       aes(axis1 = source,
+           axis2 = candidate,
+           axis3 = spend_cat,
+           y = flow_amount,
+           fill = party_clean)) +
+
+  geom_alluvium(alpha = 0.75, width = 0.45, knot.prop = 0.4) +
+  geom_stratum(fill = "gray90", color = "gray20", width = 0.75) +
+  geom_text(
+    stat = "stratum",
+    aes(label = after_stat(stratum)),
+    size = 4.5,
+    fontface = "bold"
+  ) +
+  scale_x_discrete(limits = c("Source", "Candidate", "Spending"),
+                   expand = c(0.3, 0.3)) +
+  scale_y_continuous(labels = scales::label_dollar(scale = 1e-9, suffix = "B")) +
+  scale_fill_manual(values = c(
+    "Democrat" = "#1D4ED8",
+    "Republican" = "#B91C1C",
+    "Other" = "#95A3A6"
+  )) +
+  
+  facet_wrap(~ year, nrow = 1, scales = "free_x") +
+
+  labs(
+    title = "Flow of Campaign Money: Source → Candidate → Spending",
+    subtitle = "Small flows merged into 'Other (Small)' for readability",
+    y = "Amount (in billions)",
+    fill = "Party"
+  ) +
+
+  theme_minimal(base_size = 20) +
+  theme(
+    plot.title = element_text(size = 30, face = "bold"),
+    plot.subtitle = element_text(size = 22),
+    strip.text = element_text(size = 24, face = "bold"),
+    axis.text.x = element_text(size = 18),
+    legend.text = element_text(size = 18),
+    legend.title = element_text(size = 20),
+    panel.spacing.x = unit(5, "cm"),
+    plot.margin = margin(20, 50, 20, 50)
+  )
+
+gg_flow
+```
+#Observation:
+This alluvial plot shows how campaign money moves from funding sources → to candidates → to spending. In 2020, a few major candidates dominate the flows: Biden and Sanders rely heavily on individual donors, Bloomberg is fueled mostly by his own loans, and Trump’s funding is a mix of individuals and transfers. Most of this money ultimately goes into operating expenses, with smaller amounts going to refunds or other categories.
+
+In 2024, the flows are smaller and spread across more candidates. Harris receives the largest share from individual donors and transfers, while Trump, Haley, and Ramaswamy show mixed funding that includes loans. Again, most money ends up in operating costs, with some flows toward loan repayments for self-funded campaigns.
+
+Overall, the plot highlights the shift from big, concentrated funding in 2020 to more distributed but smaller funding streams in 2024, while spending patterns remain broadly similar.
+

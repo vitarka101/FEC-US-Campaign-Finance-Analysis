@@ -1,5 +1,220 @@
-# Data
+---
+title: "Data"
+format:
+  html:
+    toc: true
+    toc-depth: 2
+editor: visual
+---
 
-## Description
+This section summarizes missing-data patterns for the key FEC files in this project. For each dataset, the visuals include a bar chart of the most-missing columns, a sampled heatmap of missing vs. present values, and (where helpful) a row-level missingness distribution. Blank strings are normalized to `NA` before analysis. The helper functions keep plots compact by focusing on the columns with the most missingness.
 
-## Missing value analysis
+-   Candidate summary files (`candidate_summary_2020.csv`, `candidate_summary_2024.csv`): one row per candidate per filing period with cash, receipts, disbursements, office sought, and address metadata.
+-   Committee summary files (`committee_summary_2020.csv`, `committee_summary_2024.csv`): one row per committee per filing period with balances, receipts, disbursements, debts, and contact details.
+-   Independent expenditure files (`independent_expenditure_2020.csv`, `independent_expenditure_2024.csv`): one row per outside-spend line item not coordinated with candidates; includes payee, purpose, amount, date, and election targeting.
+-   Lobbyist bundle file (`lobbyist_bundle.csv`): bundled contributions reported by lobbyist or registrant PACs; shows contributor, recipient committee, amount, and coverage dates.
+-   Disbursement file (`disbursement_2021_24.csv`): operating expenditures and other outflows reported by committees; records payee, purpose, amount, date, and memo flags.
+
+```{r setup}
+library(tidyverse)
+library(scales)
+
+theme_set(theme_minimal(base_size = 12))
+
+clean_na <- function(df) {
+  df |>
+    mutate(across(where(is.character), ~na_if(.x, "")))
+}
+
+plot_missing_cols <- function(df, n = 12, title = "Top missing columns") {
+  miss_df <- df |>
+    summarise(across(everything(), ~sum(is.na(.)))) |>
+    pivot_longer(everything(), names_to = "field", values_to = "n_missing") |>
+    arrange(desc(n_missing)) |>
+    slice_head(n = n) |>
+    mutate(pct = n_missing / nrow(df))
+
+  ggplot(miss_df, aes(x = n_missing, y = fct_reorder(field, n_missing))) +
+    geom_col(fill = "#9b59b6") +
+    geom_text(aes(label = percent(pct, accuracy = 0.1)), hjust = -0.05, size = 3) +
+    scale_x_continuous(expand = expansion(mult = c(0, 0.1))) +
+    labs(x = "Missing count", y = NULL, title = title)
+}
+
+plot_heatmap <- function(df, n_cols = 12, n_rows = 120, n_present = 3, title = "Missingness heatmap") {
+  miss_counts <- colSums(is.na(df))
+  miss_prop <- miss_counts / nrow(df)
+
+  cols_with_data <- names(miss_prop[miss_prop < 1])
+  top_missing <- if (length(cols_with_data) > 0) {
+    names(sort(miss_counts[cols_with_data], decreasing = TRUE))
+  } else {
+    names(sort(miss_counts, decreasing = FALSE))
+  }
+
+  top_present <- names(sort(miss_counts, decreasing = FALSE))
+
+  keep_cols <- unique(c(
+    head(top_missing, max(0, n_cols - n_present)),
+    head(top_present, n_present)
+  ))
+
+  keep_cols <- keep_cols[seq_len(min(length(keep_cols), n_cols))]
+
+  heat_df <- df |>
+    select(all_of(keep_cols)) |>
+    mutate(row_id = row_number()) |>
+    slice_sample(n = min(n_rows, nrow(df))) |>
+    mutate(across(all_of(keep_cols), ~if_else(is.na(.), "missing", "present"))) |>
+    pivot_longer(-row_id, names_to = "field", values_to = "is_missing")
+
+  ggplot(heat_df, aes(x = field, y = fct_rev(factor(row_id)), fill = is_missing)) +
+    geom_tile(color = "white", linewidth = 0.1) +
+    scale_fill_manual(values = c(present = "#e0ecf4", missing = "#9b59b6")) +
+    labs(x = NULL, y = "Sampled rows", fill = "Status", title = title) +
+    theme(axis.text.y = element_blank(),
+          axis.text.x = element_text(angle = 45, hjust = 1))
+}
+
+plot_row_missing <- function(df, title = "Row-wise missingness") {
+  df |>
+    mutate(n_missing = rowSums(is.na(across(everything())))) |>
+    ggplot(aes(x = n_missing)) +
+    geom_histogram(binwidth = 2, fill = "#9b59b6", color = "white") +
+    labs(x = "Missing fields per row", y = "Row count", title = title)
+}
+```
+
+## Candidate summary 2020
+
+```{r cand20-load}
+cand20 <- readr::read_csv("candidate_summary_2020.csv", show_col_types = FALSE) |> clean_na()
+```
+
+```{r cand20-plots, fig.width=8, fig.height=4}
+plot_missing_cols(cand20, title = "Candidate 2020: columns with most missingness")
+```
+
+```{r cand20-heat, fig.width=9, fig.height=5}
+plot_heatmap(cand20, title = "Candidate 2020: missing vs present (sampled rows, top columns)")
+```
+
+**Interpretation:** Money fields are essentially complete; the weak spots are the “when” and “where” details—coverage dates and second address lines. The analysis flags rows with fuzzy date windows on timelines, and maps keep the dollars while parking partial addresses in an “unknown” bin.
+
+## Candidate summary 2024
+
+```{r cand24-load}
+cand24 <- readr::read_csv("candidate_summary_2024.csv", show_col_types = FALSE) |> clean_na()
+```
+
+```{r cand24-plots, fig.width=8, fig.height=4}
+plot_missing_cols(cand24, title = "Candidate 2024: columns with most missingness")
+```
+
+```{r cand24-heat, fig.width=9, fig.height=5}
+plot_heatmap(cand24, title = "Candidate 2024: missing vs present (sampled rows, top columns)")
+```
+
+**Interpretation:** Same pattern in 2024: financials are present, but coverage dates and extra address lines are fuzzy. Trend charts highlight rows with missing windows, and location summaries retain the financial columns while labeling incomplete addresses as “unknown.”
+
+## Committee summary 2020
+
+```{r comm20-load}
+comm20 <- readr::read_csv("committee_summary_2020.csv", show_col_types = FALSE) |> clean_na()
+```
+
+```{r comm20-plots, fig.width=8, fig.height=4}
+plot_missing_cols(comm20, title = "Committee 2020: columns with most missingness")
+```
+
+```{r comm20-heat, fig.width=9, fig.height=5}
+plot_heatmap(comm20, title = "Committee 2020: missing vs present (sampled rows, top columns)")
+```
+
+**Interpretation:** Committee money fields and IDs are intact, but coverage start/end dates and address fragments are patchy. Time-series views either filter or infer date windows; geographic views keep the dollars and flag rows with thin address info instead of dropping them.
+
+## Committee summary 2024
+
+```{r comm24-load}
+comm24 <- readr::read_csv("committee_summary_2024.csv", show_col_types = FALSE) |> clean_na()
+```
+
+```{r comm24-plots, fig.width=8, fig.height=4}
+plot_missing_cols(comm24, title = "Committee 2024: columns with most missingness")
+```
+
+```{r comm24-heat, fig.width=9, fig.height=5}
+plot_heatmap(comm24, title = "Committee 2024: missing vs present (sampled rows, top columns)")
+```
+
+**Interpretation:** 2024 committees mirror 2020: financials and IDs are trustworthy; coverage dates and address bits are hit-or-miss. Dollars stay in place, with rows tagged for missing dates/addresses before plotting trends or maps.
+
+## Independent expenditure 2020
+
+```{r ie20-load}
+ie20 <- readr::read_csv("independent_expenditure_2020.csv", show_col_types = FALSE) |> clean_na()
+```
+
+```{r ie20-plots, fig.width=8, fig.height=4}
+plot_missing_cols(ie20, title = "Independent expenditure 2020: columns with most missingness")
+```
+
+```{r ie20-heat, fig.width=9, fig.height=5}
+plot_heatmap(ie20, title = "Independent expenditure 2020: missing vs present (sampled rows, top columns)")
+```
+
+**Interpretation:** Spend amounts and dates look good; payee names/locations are the messy part. Rollups keep all dollars, and maps use an “unknown payee location” bucket instead of deleting rows.
+
+## Independent expenditure 2024
+
+```{r ie24-load}
+ie24 <- readr::read_csv("independent_expenditure_2024.csv", show_col_types = FALSE) |> clean_na()
+```
+
+```{r ie24-plots, fig.width=8, fig.height=4}
+plot_missing_cols(ie24, title = "Independent expenditure 2024: columns with most missingness")
+```
+
+```{r ie24-heat, fig.width=9, fig.height=5}
+plot_heatmap(ie24, title = "Independent expenditure 2024: missing vs present (sampled rows, top columns)")
+```
+
+**Interpretation:** Dollars and dates hold up here too; payee and purpose descriptions are thin. Spend totals remain intact, missing descriptors are flagged, and categorical imputations are only considered if a model truly needs them.
+
+## Lobbyist bundle
+
+```{r lobby-load}
+lobby <- readr::read_csv("lobbyist_bundle.csv", show_col_types = FALSE) |> clean_na()
+```
+
+```{r lobby-plots, fig.width=8, fig.height=4}
+plot_missing_cols(lobby, title = "Lobbyist bundle: columns with most missingness")
+```
+
+```{r lobby-heat, fig.width=9, fig.height=5}
+plot_heatmap(lobby, title = "Lobbyist bundle: missing vs present (sampled rows, top columns)")
+```
+
+**Interpretation:** Contributions and dates are clean; coverage dates and election geography are the weak spots. Summaries can trust the amounts, but timelines and maps should call out unknown coverage/geography rather than pruning rows.
+
+## Disbursement 2021–2024
+
+```{r disb-load}
+disb <- readr::read_csv("disbursement_2021_24.csv", show_col_types = FALSE) |> clean_na()
+```
+
+```{r disb-plots, fig.width=8, fig.height=4}
+plot_missing_cols(disb, title = "Disbursement 2021–2024: columns with most missingness")
+```
+
+```{r disb-heat, fig.width=9, fig.height=5}
+plot_heatmap(disb, n_present = 5, title = "Disbursement 2021–2024: missing vs present (sampled rows, top columns)")
+```
+
+**Interpretation:** Core IDs, amounts, and dates are present, but many descriptors (employer, occupation, memo flags) are blank. Columns that are completely empty should be dropped; for partially missing descriptors, keep the dollars and mark unknown categories so aggregates stay intact.
+
+------------------------------------------------------------------------
+
+Overall, missingness clusters in coverage dates and secondary address fields across datasets. Financial totals and amounts are generally well reported, so analyses relying on monetary values remain robust, while geospatial or temporal coverage analyses should account for these gaps.
+
+## Consolidated XLS files are available for reference in the repo

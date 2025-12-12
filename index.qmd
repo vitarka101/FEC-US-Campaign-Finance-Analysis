@@ -1,1 +1,39 @@
-# Introduction
+---
+title: "Introduction"
+format:
+  html:
+    page-layout: full
+    toc: false
+---
+
+Money has a big impact on American elections. It affects which candidates get attention, how they share their message, and which voices are heard by voters. But for most people, it is hard to see where all that money comes from and how it is used. We chose this topic because we want to understand how campaign money moves during presidential elections. We are interested in finding out who raises the most money, how campaigns spend it, and how this has changed over the years. Some questions we want to look at are:
+
+1. Which candidates and parties raise the most money, and from what sources?
+2. How do different campaigns spend their funds?
+3. Has independent spending grown in influence?
+4. What kinds of committees and donors contribute the most?
+5. Are there any clear financial patterns that seem to separate winning campaigns from others?
+
+By using and visualizing data from the Federal Election Commission (FEC), we hope to find clear trends that show how money shapes elections in the United States today.
+
+Federal campaign finance data is vast, detailed, and often overwhelming, but it offers one of the clearest windows into how political power is built in the United States. Every federal candidate and political committee is legally required to disclose where their money comes from and how it is spent, and the Federal Election Commission (FEC) compiles these reports into a public database that spans decades of elections. This dataset includes information on presidential, Senate, and House campaigns, independent expenditure groups, political action committees (PACs), party committees, and more.
+
+Although the FEC provides millions of records, our project focuses exclusively on the presidential election cycle, where financial activity is typically the largest and most influential. Presidential campaigns raise far more money than congressional campaigns, attract more independent spending, and involve extensive networks of committees, donors, and outside groups. This makes the dataset ideal for exploring patterns in political fundraising at a national scale.
+
+To build our analysis, we rely on official, publicly accessible FEC data obtained through the FEC Open Data API. This API provides structured access to many components of the campaign finance system, such as:
+
+- Candidate-level summaries, including total receipts, disbursements, cash on hand, loans, and debts
+
+- Committee-level activity, showing how affiliated committees raise and spend money
+
+- Itemized contributions, detailing individual donors, PAC contributions, and transfers
+
+- Independent expenditures, which capture spending by outside groups attempting to influence an election
+
+These sources allow us to reconstruct a full financial picture of each presidential campaign, tracking how money enters, circulates, and is deployed throughout an election cycle.
+
+A central part of our project is a comparative analysis of two recent presidential elections: 2020 and 2024. These two cycles offer a natural contrast—not only in political outcome, but also in financial structure. Democrats won the presidency in 2020, while Republicans prevailed in 2024. By comparing how much money each side raised, how they spent it, and how independent groups participated, we can evaluate whether financial patterns shifted alongside electoral results.
+
+For instance, one might ask whether the winning party in each cycle benefited from stronger grassroots fundraising, larger PAC contributions, more aggressive spending, or greater support from outside groups. Alternatively, the strength of independent expenditures may reveal how much influence super PACs and other organizations exerted relative to the campaigns themselves.
+
+By narrowing our scope to these two election years and applying exploratory data analysis techniques, we aim to uncover meaningful trends in how campaign financing evolves—and how those changes may relate to shifts in political power. Ultimately, this project uses data from the FEC not only to visualize financial flows, but also to better understand how money functions as a strategic resource in modern presidential elections.
