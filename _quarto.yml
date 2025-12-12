@@ -28,6 +28,6 @@ book:
 
 format:
   html:
-    theme: Superhero
+    theme: Simplex
     code-fold: true
     allow-html: true

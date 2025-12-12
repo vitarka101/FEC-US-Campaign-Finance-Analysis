@@ -6,6 +6,8 @@ format:
     toc: false
 ---
 
+Analysis done on Raising, Disbursement and Spending patterns
+
 ```{r}
 packages <- c("tidyverse", "lubridate", "scales", "patchwork", 
               "viridis", "ggridges", "gridExtra", "RColorBrewer", "tidytext", "forcats")
@@ -375,16 +377,17 @@ final_page <- subplot(
 final_page
 ```
 
-#Observation:
+### Observation:
 The vertical bar chart compares how much money presidential candidates raised in the 2020 and 2024 election cycles. Fundraising in 2020 was significantly higher, with candidates collectively bringing in over $8.5 billion, compared to roughly $6.8 billion in 2024.This was primarily because the 2020 race was a much more expensive and competitive cycle, driven by a large field of high-profile candidates, including Joe Biden, Donald Trump, Michael Bloomberg, and Bernie Sanders, who attracted substantial donor attention. In contrast, 2024 saw a dip in total fundraising, likely because the field was smaller, less fragmented, and had fewer candidates running large, nationally funded campaigns.
 
 The horizontal bar chart shows the below information:
--In 2020, we can see that Bloomberg was the highest fundraiser followed by Biden.
--A key detail behind the 2024 fundraising pattern is that Joe Biden and Kamala Harris show identical fundraising totals. This happened because Biden formally withdrew from the 2024 presidential race on July 21, 2024, and endorsed Harris as the Democratic nominee. After his withdrawal, his campaign structure and reported funds effectively transferred to Harris, so the FEC filings show the same total receipts for both candidates. This is why they appear tied at the top in the 2024 chart.
+- In 2020, we can see that Bloomberg was the highest fundraiser followed by Biden. 
 
--On the Republican side, Donald Trump does not appear in the 2024 fundraising list, even though he was the party’s main candidate. This is because Trump’s 2024 fundraising flowed mostly through a network of joint fundraising committees and PACs, not through a traditional single candidate committee. As a result, his fundraising totals are not recorded in the standard FEC candidate receipts dataset, which is why his name doesn’t show up among the top fundraisers for that year.
+- A key detail behind the 2024 fundraising pattern is that Joe Biden and Kamala Harris show identical fundraising totals. This happened because Biden formally withdrew from the 2024 presidential race on July 21, 2024, and endorsed Harris as the Democratic nominee. After his withdrawal, his campaign structure and reported funds effectively transferred to Harris, so the FEC filings show the same total receipts for both candidates. This is why they appear tied at the top in the 2024 chart.
 
-#Fixes to the data observed from above graph:
+- On the Republican side, Donald Trump does not appear in the 2024 fundraising list, even though he was the party’s main candidate. This is because Trump’s 2024 fundraising flowed mostly through a network of joint fundraising committees and PACs, not through a traditional single candidate committee. As a result, his fundraising totals are not recorded in the standard FEC candidate receipts dataset, which is why his name doesn’t show up among the top fundraisers for that year.
+
+## Fixes to the data observed from above graph:
 After noticing that Donald Trump’s name was missing from the 2024 candidate fundraising data, we investigated the underlying FEC reporting structure. We found that Trump raised the majority of his 2024 funds through joint fundraising committees and PACs, rather than through a single candidate committee. As a result, his financial activity did not appear in the standard candidate receipts file and required additional data integration.
 
 To address this gap and ensure that all major candidates were represented in our analysis, we merged information from multiple FEC data sources, including candidate filings, committee filings, individual contributions, receipts, and disbursements. This process allowed us to construct a unified dataset that accurately reflects the financial activity of key presidential contenders across both election cycles.
@@ -549,7 +552,7 @@ p1_hist_combined <- candidates |>
   )
 print(p1_hist_combined)
 ```
-#Observation: 
+### Observation: 
 This chart shows how much money candidates from each party raised in both 2020 and 2024, and how fundraising amounts are distributed within each group.
 
 Democrats: In 2020, many Democratic candidates raised substantial amounts, with several reaching into the multimillion-dollar range. The distribution is wide, showing a large number of candidates competing and raising serious money.
@@ -615,12 +618,10 @@ p1_pareto <- pareto_data |>
 
 p1_pareto
 ```
-#Observation:
+### Observation:
 This chart shows how fundraising is concentrated among candidates in the 2020 and 2024 elections. The curve rises very sharply at the beginning, which means that only a tiny fraction of candidates are responsible for bringing in most of the money. In both years, roughly the top 5% of candidates account for almost 90–95% of all campaign receipts.
 
 After that small group, the curve flattens out, showing that the remaining candidates raise very little in comparison. This confirms a strong Pareto pattern: a small group of major contenders—such as Biden, Trump, Bloomberg, Harris, and others—dominate the fundraising landscape, while most candidates operate with minimal financial support.
-
-
 
 
 ## Time-Series Fundraising Graph (2010 - 2025 how different sources have raised money in a presedential election)
@@ -766,7 +767,7 @@ fig <- fig |>
 
 fig  # <-- Display the final interactive graph
 ```
-#Observation:
+### Observation:
 This interactive chart shows how fundraising changes over time for three groups. Starting around 2012, PACs begin raising way more money than everyone else, and their totals keep shooting up. The main reason is that Super PACs are allowed to raise unlimited money, so wealthy donors and big organizations can give as much as they want. Party Committees also grow steadily, especially during election years, but nowhere near the level of PACs. Candidates raise the least money overall and mostly see increases only when their election campaigns are active. Overall, the chart shows how much U.S. elections now rely on outside fundraising groups rather than just the candidates themselves.
 
 
@@ -846,7 +847,7 @@ p_dot <- ggplot(
   )
 ggplotly(p_dot, tooltip = "text", height = 500)
 ```
-#Observation: 
+### Observation: 
 A key difference between this plot and earlier ones is that Donald Trump now appears clearly among the top fundraisers in both years. Hovering over the dots displays the exact values of the funds raised. Initially, Trump was missing from the 2024 charts because his money flowed through multiple committees instead of a single candidate account. After we combined data from all the different FEC files—candidate receipts, committee filings, PAC data, and disbursement records—Trump’s total fundraising became visible. This combined dataset gives a more accurate picture of the major candidates, and we can now see Trump standing out prominently in both 2020 and 2024.
 
 
@@ -855,7 +856,6 @@ A key difference between this plot and earlier ones is that Donald Trump now app
 2. How do different campaigns spend their funds?
 
 ```{r}
-## Updated Boxplot of Receipts by Party and Year (done)
 
 party_medians <- candidates |>
   filter(
@@ -928,11 +928,10 @@ p3_box <- candidates_sorted |>
 
 p3_box
 ```
-#Observation:
+### Observation:
 In 2020, Democrats had the highest median and the widest IQR, meaning their candidates varied the most in money raised, with several very large outliers. Republicans were more consistent with a smaller spread, and “Others” raised the least with minimal variation. In 2024, Republicans show a wider IQR and more high-value outliers—largely due to major fundraisers—while Democrats have a narrower range than in 2020. “Others” remain lowest overall. In short, Democrats showed the biggest fundraising spread in 2020, while Republicans showed the widest spread in 2024.
 
 
-## temporary
 ```{r, fig.width=8, fig.height=6}
 ## sort graph, make better if possible -> Ayush
 
@@ -1004,302 +1003,9 @@ fund_long <- fund_long |>
   mutate(candidate = fct_reorder(candidate, total_receipts)) |>
   ungroup()
 
-#---------------------------------
-# 4. Plot: Stacked Bar of Funding Sources
-#---------------------------------
-p_funding_composition <- ggplot(
-  fund_long,
-  aes(
-    x = amount / 1e6,
-    y = candidate,
-    fill = source
-  )
-) +
-  geom_col() +
-  facet_wrap(~ year, scales = "free_y") +
-  labs(
-    title = "Fundraising Composition for Top 10 Presidential Candidates",
-    x = "Amount (Millions USD)",
-    y = "Candidate",
-    fill = "Funding Source"
-  ) +
-  scale_fill_brewer(palette = "Paired") +
-  theme_minimal(base_size = 13) +
-  theme(
-    axis.text.y = element_text(size = 9),
-    legend.position = "bottom"
-  )
-
-p_funding_composition
-
-## maybe change the graph
-## if kept change the coloring
-
 
 ```
-### updated
 
-```{r}
-library(dplyr)
-library(plotly)
-# ---- 1. Prep data ----
-# Make sure types are clean
-fund_long_plot <- fund_long |>
-  mutate(
-    year      = as.character(year),
-    candidate = as.character(candidate),
-    party     = as.character(party),
-    source    = as.character(source),
-    cand_year = paste0(candidate, " (", year, ")")  # label for each combo
-  )
-
-# Order funding sources by total amount (largest to smallest) for plotting
-source_order <- fund_long_plot |>
-  group_by(source) |>
-  summarise(total_amount = sum(amount, na.rm = TRUE), .groups = "drop") |>
-  arrange(desc(total_amount)) |>
-  pull(source)
-
-fund_long_plot <- fund_long_plot |>
-  mutate(source = factor(source, levels = source_order)) |>
-  # reverse factor order so largest is at top
-  mutate(source = forcats::fct_rev(source))
-
-years <- sort(unique(fund_long_plot$year))
-all_candidates <- sort(unique(fund_long_plot$candidate))
-
-# ---- 2. Build traces: one per (year, candidate, source) ----
-plot_traces <- list()
-visibility <- c()
-trace_year <- character(0)
-trace_cand <- character(0)
-
-for (yr in years) {
-  for (cand in all_candidates) {
-
-    df <- fund_long_plot |>
-      filter(year == yr, candidate == cand, amount > 0)
-
-    # If this candidate didn't run / doesn't exist in that year, skip
-    if (nrow(df) == 0) next
-
-    # One stacked bar per candidate-year, with multiple sources
-    trace <- list(
-      x = df$amount / 1e6,     # in millions
-      y = df$source,           # each source is a segment
-      type = "bar",
-      orientation = "h",
-      name = paste0(cand, " (", yr, ")"),
-      visible = TRUE,          # default on so initial view is populated
-      hovertemplate = paste0(
-        "<b>", cand, " (", yr, ")</b><br>",
-        "Party: ", df$party[1], "<br>",
-        "Source: %{y}<br>",
-        "Amount: $%{x:,.2f}M",
-        "<extra></extra>"
-      )
-    )
-
-    plot_traces <- append(plot_traces, list(trace))
-    visibility <- c(visibility, TRUE)  # default visible
-    trace_year <- c(trace_year, yr)
-    trace_cand <- c(trace_cand, cand)
-  }
-}
-
-n_traces <- length(plot_traces)
-
-# ---- 3. YEAR & CANDIDATE DROPDOWNS (reset, stable) ----
-# Default: all traces visible (all years + all candidates)
-vis_all <- rep(TRUE, n_traces)
-vis_by_year <- lapply(years, function(yr) trace_year == yr)
-
-# Candidate dropdowns: one for all, one per year
-cand_menus <- list()
-
-# All-years candidate dropdown (includes all candidates)
-all_year_buttons <- list(
-  list(
-    method = "update",
-    args = list(list(visible = vis_all), list()),
-    label = "All candidates"
-  )
-)
-for (cand in all_candidates) {
-  vis <- trace_cand == cand
-  all_year_buttons[[length(all_year_buttons) + 1]] <- list(
-    method = "update",
-    args = list(list(visible = vis), list()),
-    label = cand
-  )
-}
-cand_menus[["all"]] <- list(
-  type = "dropdown",
-  direction = "down",
-  buttons = all_year_buttons,
-  x = 0.6,
-  y = 1.18,
-  xanchor = "center",
-  yanchor = "top",
-  showactive = TRUE,
-  bgcolor = "white",
-  bordercolor = "black",
-  font = list(size = 13),
-  active = 0
-)
-
-# Per-year candidate dropdowns (only candidates from that year)
-for (yr in years) {
-  cand_year <- sort(unique(fund_long_plot$candidate[fund_long_plot$year == yr]))
-  buttons <- list(
-    list(
-      method = "update",
-      args = list(list(visible = vis_by_year[[which(years == yr)]]), list()),
-      label = "All candidates"
-    )
-  )
-  for (cand in cand_year) {
-    vis <- (trace_year == yr) & (trace_cand == cand)
-    buttons[[length(buttons) + 1]] <- list(
-      method = "update",
-      args = list(list(visible = vis), list()),
-      label = cand
-    )
-  }
-  cand_menus[[as.character(yr)]] <- list(
-    type = "dropdown",
-    direction = "down",
-    buttons = buttons,
-    x = 0.6,
-    y = 1.18,
-    xanchor = "center",
-    yanchor = "top",
-    showactive = TRUE,
-    bgcolor = "white",
-    bordercolor = "black",
-    font = list(size = 13),
-    active = 0
-  )
-}
-
-# Build year buttons: visibility only for now (layout filled after)
-year_buttons <- list()
-year_buttons[[1]] <- list(
-  method = "update",
-  args = list(
-    list(visible = vis_all),
-    list()  # placeholder, updated after menu is built
-  ),
-  label = "All years"
-)
-
-for (i in seq_along(years)) {
-  yr <- years[i]
-  year_buttons[[length(year_buttons) + 1]] <- list(
-    method = "update",
-    args = list(
-      list(visible = vis_by_year[[i]]),
-      list()  # placeholder, updated after menu is built
-    ),
-    label = yr
-  )
-}
-
-# Year menu base (buttons filled in below)
-year_menu_base <- list(
-  type = "dropdown",
-  direction = "down",
-  buttons = NULL,  # to be set
-  x = 0.2,
-  y = 1.18,
-  xanchor = "center",
-  yanchor = "top",
-  showactive = TRUE,
-  bgcolor = "white",
-  bordercolor = "black",
-  font = list(size = 13),
-  active = 0
-)
-
-# Fill year menu with buttons (after initial creation)
-year_menu_base$buttons <- year_buttons
-
-# Precompute updatemenus for all-years and per-year views
-updatemenus_all <- list(year_menu_base, cand_menus[["all"]])
-updatemenus_by_year <- lapply(years, function(yr) list(year_menu_base, cand_menus[[as.character(yr)]]))
-
-# Now update each year button's layout arg to swap the candidate menu
-year_buttons[[1]]$args[[2]] <- list(
-  updatemenus = updatemenus_all,
-  xaxis = list(title = "")
-)
-for (i in seq_along(years)) {
-  year_buttons[[i + 1]]$args[[2]] <- list(
-    updatemenus = updatemenus_by_year[[i]],
-    xaxis = list(title = "")
-  )
-}
-
-# After updating buttons, refresh in year_menu_base
-year_menu_base$buttons <- year_buttons
-
-# ---- 5. Build figure ----
-fig <- plot_ly()
-for (t in plot_traces) {
-  fig <- fig |>
-    add_trace(
-      x = t$x,
-      y = t$y,
-      type = t$type,
-      orientation = t$orientation,
-      name = t$name,
-      hovertemplate = t$hovertemplate,
-      visible = t$visible
-    )
-}
-fig <- fig |>
-  layout(
-    title = list(
-      text = "Fundraising Composition by Candidate & Year",
-      x = 0.5,
-      y = 1.08,
-      font = list(size = 18)
-    ),
-    xaxis = list(
-      title = list(text = "Amount (In Millions)", standoff = 30, font = list(size = 13)),
-      zeroline = FALSE,
-      automargin = TRUE,
-      tickfont = list(size = 12),
-      tickmode = "array",
-      tickvals = c(0, 500, 1000, 1500, 2000, 2500),
-      ticktext = c("$0M", "$500M", "$1,000M", "$1,500M", "$2,000M", "$2,500M")
-    ),
-    yaxis = list(
-      title = list(text = "Funding Source", font = list(size = 15)),
-      tickfont = list(size = 12)
-    ),
-    barmode = "stack",
-    updatemenus = list(
-      year_menu_base,
-      cand_menus[["all"]]
-    ),
-    annotations = NULL,
-    margin = list(t = 160, b = 60, r = 260),
-    font = list(size = 13),
-    height = 475,
-    legend = list(
-      orientation = "v",
-      x = 1.02,
-      xanchor = "left",
-      y = 1,
-      yanchor = "top",
-      font = list(size = 12)
-    )
-  )
-fig
-```
-#Observation:
-This chart shows how top candidates in 2020 and 2024 built their fundraising differently. In 2020, Bloomberg and Steyer relied mostly on self-funding, while Sanders, Warren, and Buttigieg raised mainly from individual donors. Biden had a balanced mix of individuals and party/PAC support. In 2024, Harris received large party and PAC transfers, Trump combined individual donations with PAC/committee funding, Kennedy mixed individuals with other receipts, and Ramaswamy relied heavily on self-funding. Overall, the chart highlights not just who raised the most money, but how they raised it—revealing the very different financial structures behind each campaign.
 
 
 ```{r}
@@ -1542,6 +1248,8 @@ fig <- fig |>
 fig
 ```
 
+### Observation:
+This chart shows how top candidates in 2020 and 2024 built their fundraising differently. In 2020, Bloomberg and Steyer relied mostly on self-funding, while Sanders, Warren, and Buttigieg raised mainly from individual donors. Biden had a balanced mix of individuals and party/PAC support. In 2024, Harris received large party and PAC transfers, Trump combined individual donations with PAC/committee funding, Kennedy mixed individuals with other receipts, and Ramaswamy relied heavily on self-funding. Overall, the chart highlights not just who raised the most money, but how they raised it—revealing the very different financial structures behind each campaign.
 
 ```{r}
 read_pres_disbursements <- function(path, year) {
@@ -1608,58 +1316,17 @@ disbursements_all <- bind_rows(disb_2020, disb_2024)
 
 ```{r, fig.width=8, fig.height=6}
 
-# make dotted and interactive -> Ayush
-
 library(ggplot2)
 library(dplyr)
 library(forcats)
 library(scales)
 
-#---------------------------------
-# Select top 10 spenders per year
-#---------------------------------
+
 top_spenders <- disbursements_all |>
   group_by(year) |>
   slice_max(total_disb, n = 10) |>
   ungroup() |>
   mutate(candidate = fct_reorder(candidate, total_disb))
-
-#---------------------------------
-# Plot with fixed x-axis visibility
-#---------------------------------
-p1 <- ggplot(top_spenders,
-             aes(x = total_disb / 1e6,
-                 y = candidate,
-                 fill = party)) +
-  geom_col() +
-  facet_wrap(~ year, scales = "free_y") +
-  scale_fill_manual(
-    values = c(
-      "Republican" = "#E41A1C",
-      "Democrat"   = "#377EB8",
-      "Other"      = "#4DAF4A"
-    )
-  ) +
-  scale_x_continuous(
-    # labels = label_dollar(suffix = "M"),
-    expand = expansion(mult = c(0, 0.05))   # <-- adds 5% padding to right side
-  ) +
-  labs(
-    title = "Top 10 Presidential Campaigns by Total Spending",
-    x = "Total Disbursements (Millions USD)",
-    y = "Candidate",
-    fill = "Party"
-  ) +
-  theme_minimal(base_size = 14) +
-  theme(
-    axis.text.y = element_text(size = 10),
-    axis.text.x = element_text(size = 10, margin = margin(t = 10)),
-    legend.position = "bottom",
-    plot.margin = margin(20, 20, 20, 20)     # <-- adds outer padding
-  )
-
-p1
-
 
 
 ```
@@ -1671,9 +1338,6 @@ library(forcats)
 library(scales)
 library(plotly)
 
-#---------------------------------
-# Select top 10 spenders per year
-#---------------------------------
 top_spenders <- disbursements_all |>
   group_by(year) |>
   slice_max(total_disb, n = 10) |>
@@ -1689,9 +1353,6 @@ top_spenders <- disbursements_all |>
     )
   )
 
-#---------------------------------
-# Create dot plot
-#---------------------------------
 p1 <- ggplot(top_spenders,
              aes(x = total_disb / 1e6,
                  y = candidate_sorted,
@@ -1724,14 +1385,14 @@ p1 <- ggplot(top_spenders,
 
 ggplotly(p1, tooltip = "text", height = 500)
 ```
-#Observation:
+### Observation:
 This chart shows which presidential campaigns spent the most money in 2020 and 2024. In 2020, Democrats like Michael Bloomberg and Joe Biden spent huge amounts, easily outpacing everyone else, while Donald Trump was the biggest spender on the Republican side. In 2024, Kamala Harris and Donald Trump stand out as the two major spenders, with other Republican candidates spending much smaller amounts by comparison. If you hover over any point, you can see the exact amount each candidate spent, making it easy to compare their campaign spending across the two years.
 
 
 
 ## How efficiently did campaigns turn their fundraising into spending?
 Who burns through cash quickly, and who stockpiles it?
-#Burn Rate = Total Disbursements / Total Receipts
+### Burn Rate = Total Disbursements / Total Receipts
 
 ```{r, fig.width=10, fig.height=8}
 library(ggrepel)
@@ -1800,55 +1461,10 @@ ggplot(burn_df,
     legend.position = "bottom"
   )
 ```
-#Observation:
+### Observation:
 We examined each campaign’s burn rate—how quickly candidates spent the money they raised. The dashed line in the chart represents spending equal to fundraising. Candidates on the line spent almost exactly what they brought in, those above the line spent more than they raised (often by tapping loans or debt), and those below the line spent less than they raised.
 
 In 2020, Bloomberg and Biden sit close to the line, meaning they burned through nearly all their funds, while Trump spent slightly less but still operated at a high burn rate. Most other candidates fall well below the line, showing more conservative spending. In 2024, Kamala Harris has one of the highest burn rates, nearly matching or exceeding what she raised, while Trump and much of the Republican field appear lower on the chart, spending more cautiously relative to their receipts. Overall, only a few major campaigns burn cash extremely quickly, while most operate far below their total fundraising.
-
-```{r}
-# p2_cash <- candidates |>
-#   filter(total_receipt > 100000) |>
-#   mutate(
-#     cash_pct = cash_on_hand_cop / pmax(total_receipt, 1) * 100
-#   ) |>
-#   # Reorder party by median cash_pct within each year (descending)
-#   group_by(election_year) |>
-#   mutate(
-#     party_simple = fct_reorder(party_simple, cash_pct, .fun = median, .na_rm = TRUE, .desc = TRUE)
-#   ) |>
-#   ungroup() |>
-#   ggplot(aes(x = cash_pct, y = party_simple, fill = party_simple)) +
-#   geom_boxplot(alpha = 0.8, outlier.alpha = 0.3, outlier.size = 2) +
-#   scale_x_log10(labels = scales::percent_format(scale = 1)) +
-#   scale_fill_manual(values = c(
-#     "Democrats" = "#3A7CA5",
-#     "Republicans" = "#C45A77",
-#     "Others" = "#95A3A6"
-#   )) +
-#   facet_wrap(~ election_year, ncol = 1, strip.position = "top", scales = "free_y") +
-#   labs(
-#     title = "Distribution of Campaign Cash on Hand by Party",
-#     subtitle = "Parties sorted by median cash on hand (log scale)",
-#     x = "Cash on Hand (%)",
-#     y = NULL,
-#     fill = "Party"
-#   ) +
-#   theme_minimal(base_size = 13) +
-#   theme(
-#     legend.position = "none",  # Remove legend since party names are on y-axis
-#     strip.text = element_text(size = 16, face = "bold", hjust = 0.5),
-#     axis.text.y = element_text(size = 12, face = "bold"),
-#     axis.text.x = element_text(size = 10),
-#     axis.title.x = element_text(face = "bold", size = 12),
-#     plot.title = element_text(face = "bold", size = 18),
-#     plot.subtitle = element_text(size = 12, color = "gray30"),
-#     panel.spacing = unit(1.5, "lines"),
-#     panel.grid.major.y = element_blank(),
-#     axis.ticks.x = element_line(color = "gray40", linewidth = 0.5),
-#     axis.ticks.length.x = unit(0.2, "cm")
-#   )
-# p2_cash
-```
 
 
 ```{r}
@@ -1960,7 +1576,7 @@ p2_ridge_with_points <- p2_ridge_year_based +
 
 p2_ridge_with_points
 ```
-#Observation:
+### Observation:
 Cash on hand is basically leftover campaign money – how much cash a candidate still has in the bank after all their fundraising and spending. So this chart is showing, for each election year (2020 vs 2024) and each party, how that leftover cash is distributed across their candidates. The ridges are like smoothed histograms: tall, wide bumps mean “lots of candidates with around this level of cash on hand.”
 
 The x-axis is on a log scale, which means each step is a big jump (0.01% → 0.1% → 1% → 10% etc.), not a small linear step. We use log scale because some campaigns keep tiny amounts of cash on hand while a few hold huge reserves; on a normal scale the small values would be squished and impossible to compare. Log scaling stretches out the low end so you can see both “lean” and “cash-rich” campaigns on the same plot.
@@ -2018,7 +1634,7 @@ p5_spenders <- top_spenders |>
 
 p5_spenders
 ```
-#Observation:
+### Observation:
 This chart shows which independent committees spent the most money trying to influence presidential elections in 2020 and 2024, and whether that money was used to support or oppose specific candidates. Independent spending isn’t tied to a single campaign—these committees can support any candidate or oppose any candidate, regardless of party.
 
 In 2020, a few committees spent extremely large amounts, with Spirit of Reforming America dominating overall support spending. Other groups like America First Action and Preserve America PAC focused heavily on opposition spending. By 2024, the pattern continues but with new major players, such as Food & Water Action and FF PAC, showing strong support activity. At the same time, several committees spent substantial amounts opposing candidates, reflecting how competitive and aggressive modern campaign environments have become.
@@ -2091,7 +1707,7 @@ s24
 # explain how the plot works, hovering over a stratum tells where the money came froma nd where it is going
 
 ```
-#Observation:
+### Observation:
 These Sankey diagrams show how donor money moves through fundraising platforms and committees before reaching campaigns. In 2020, the flow was simple and centralized—Democrats mainly used ActBlue, and Republicans used WinRed and a straightforward Trump committee pipeline. By 2024, the pattern becomes much more complex, especially on the Republican side. Trump’s fundraising now runs through multiple connected committees (Save America PAC, MAGA Inc., JFCs, etc.), which helps him collect larger donations, cover expenses the campaign cannot, and keep tighter control over fundraising. Democrats, meanwhile, still maintain a cleaner, streamlined route through ActBlue. Overall, the charts reveal a shift from simpler 2020 fundraising to a more layered and committee-heavy system in 2024.
 
 ```{r, fig.width=10, fig.height=8}
@@ -2282,7 +1898,7 @@ gg_flow <- ggplot(flow_fixed,
 
 gg_flow
 ```
-#Observation:
+### Observation:
 This alluvial plot shows how campaign money moves from funding sources → to candidates → to spending. In 2020, a few major candidates dominate the flows: Biden and Sanders rely heavily on individual donors, Bloomberg is fueled mostly by his own loans, and Trump’s funding is a mix of individuals and transfers. Most of this money ultimately goes into operating expenses, with smaller amounts going to refunds or other categories.
 
 In 2024, the flows are smaller and spread across more candidates. Harris receives the largest share from individual donors and transfers, while Trump, Haley, and Ramaswamy show mixed funding that includes loans. Again, most money ends up in operating costs, with some flows toward loan repayments for self-funded campaigns.
